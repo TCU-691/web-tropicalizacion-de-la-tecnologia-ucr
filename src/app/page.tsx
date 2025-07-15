@@ -1,20 +1,116 @@
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ProjectCard } from '@/components/project-card';
-import { projectsData } from '@/lib/projects-data';
-import { Facebook, BookOpen, Users, ArrowRight, CalendarDays, MessageSquare } from 'lucide-react';
+import { BookOpen, Users, ArrowRight, CalendarDays, Mail, MapPin, Gamepad2 } from 'lucide-react';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { FirestoreProject } from '@/types/project';
+import type { FirestoreTour } from '@/types/tour';
+import type { FirestoreArticle } from '@/types/article';
+import { Badge } from '@/components/ui/badge';
+import { Image as ImageKitImage } from '@imagekit/next';
+import { ArticleCard } from '@/components/article-card';
+import type { Metadata } from 'next';
 
-export default function HomePage() {
-  const featuredProjects = projectsData.filter(p => p.featured).slice(0, 4);
+export const metadata: Metadata = {
+  title: 'TCU TC-691 | Tropicalización de la Tecnología | UCR',
+  description: 'Innovación educativa desde el trópico: visibilizando proyectos, compartiendo conocimiento. Descubre proyectos, cursos, giras y artículos del TCU TC-691 de la UCR.',
+  keywords: [
+    'TCU', 'TC-691', 'Tropicalización de la Tecnología', 'UCR', 'Universidad de Costa Rica',
+    'proyectos', 'cursos públicos', 'giras', 'artículos', 'educación', 'innovación', 'tecnología',
+    'impacto social', 'Costa Rica', 'trópico', 'comunidad', 'aprendizaje', 'sostenibilidad'
+  ],
+  openGraph: {
+    title: 'TCU TC-691 | Tropicalización de la Tecnología',
+    description: 'Innovación educativa desde el trópico: visibilizando proyectos, compartiendo conocimiento. Descubre proyectos, cursos, giras y artículos del TCU TC-691 de la UCR.',
+    siteName: 'TCU TC-691',
+    locale: 'es_CR',
+    type: 'website',
+  },
+  alternates: {
+    canonical: '/',
+  },
+};
 
-  // Mock Facebook posts
-  const mockFacebookPosts = [
-    { id: 1, title: 'Nuevo Taller de Python para Principiantes', date: 'Hace 2 días', imageUrl: 'https://placehold.co/300x200.png', dataAiHint: 'python workshop', link: '#' },
-    { id: 2, title: 'Resultados del Proyecto Microrredes en la Comunidad X', date: 'Hace 5 días', imageUrl: 'https://placehold.co/300x200.png', dataAiHint: 'community energy', link: '#' },
-    { id: 3, title: 'Inscripciones Abiertas: Robotikids Edición Verano', date: 'Hace 1 semana', imageUrl: 'https://placehold.co/300x200.png', dataAiHint: 'kids coding', link: '#' },
-  ];
+async function getFeaturedProjects(): Promise<FirestoreProject[]> {
+  if (!db) return [];
+  try {
+    const projectsCollection = collection(db, 'projects');
+    const q = query(
+      projectsCollection,
+      where('parentId', '==', null),
+      orderBy('createdAt', 'desc'),
+      limit(4)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject));
+  } catch (error) {
+    console.error("Error fetching featured projects:", error);
+    if ((error as any).code === 'failed-precondition') {
+        console.error(
+          "Firestore query failed for featured projects. This likely means you're missing a composite index. " +
+          "Please check the Firebase console for an error message with a link to create it."
+        );
+    }
+    return [];
+  }
+}
+
+async function getFeaturedTours(): Promise<FirestoreTour[]> {
+    if (!db) return [];
+    try {
+        const toursCollection = collection(db, 'tours');
+        const q = query(
+            toursCollection,
+            where('status', '!=', 'Cancelada'),
+            orderBy('status', 'desc'), // 'Próximamente' comes before 'Realizada'
+            orderBy('createdAt', 'desc'),
+            limit(3)
+        );
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreTour));
+    } catch (error) {
+        console.error("Error fetching featured tours:", error);
+         if ((error as any).code === 'failed-precondition') {
+            console.error(
+            "Firestore query failed for featured tours. This likely means you're missing a composite index. " +
+            "Please check the Firebase console for an error message with a link to create it."
+            );
+        }
+        return [];
+    }
+}
+
+async function getFeaturedArticles(): Promise<FirestoreArticle[]> {
+  if (!db) return [];
+  try {
+    const articlesCollection = collection(db, 'articles');
+    const q = query(
+      articlesCollection,
+      where('status', '==', 'aprobado'),
+      orderBy('createdAt', 'desc'),
+      limit(3)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArticle));
+  } catch (error) {
+    console.error("Error fetching featured articles:", error);
+    if ((error as any).code === 'failed-precondition') {
+        console.error(
+          "Firestore query failed for featured articles. This likely means you're missing a composite index."
+        );
+    }
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const featuredProjects = await getFeaturedProjects();
+  const featuredTours = await getFeaturedTours();
+  const featuredArticles = await getFeaturedArticles();
 
   return (
     <div className="space-y-16 md:space-y-24">
@@ -30,15 +126,18 @@ export default function HomePage() {
           <p className="text-lg md:text-xl max-w-3xl mx-auto mb-8 text-foreground/70">
             Innovación educativa desde el trópico: visibilizando proyectos, compartiendo conocimiento.
           </p>
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+          <div className="flex flex-wrap justify-center items-center gap-4">
             <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
               <Link href="/proyectos">Ver Proyectos</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-shadow">
               <Link href="/cursos-publicos">Explorar Cursos</Link>
             </Button>
-            <Button variant="secondary" size="lg" disabled className="shadow-md">
-              Simulador Junior (Próximamente)
+            <Button asChild variant="secondary" size="lg" className="shadow-md hover:shadow-lg transition-shadow">
+               <Link href="/giras">Ver Giras</Link>
+            </Button>
+             <Button asChild variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-shadow bg-accent/20 border-accent/50 text-accent-foreground hover:bg-accent/30">
+              <Link href="/simulador-junior">Simulador Junior</Link>
             </Button>
           </div>
         </div>
@@ -58,11 +157,12 @@ export default function HomePage() {
           </div>
           <div className="rounded-lg overflow-hidden shadow-xl aspect-video">
             <Image
-              src="https://placehold.co/600x400.png"
+              src="/tcu-hero-image.png"
               alt="Ilustración de tecnología y educación tropicalizada"
               width={600}
               height={400}
               className="w-full h-full object-cover"
+              priority
               data-ai-hint="technology education tropics"
             />
           </div>
@@ -70,59 +170,96 @@ export default function HomePage() {
       </section>
 
       {/* Featured Projects Section */}
-      <section className="container mx-auto px-4">
-        <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Proyectos Destacados</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-          {featuredProjects.map((project) => (
-            <ProjectCard key={project.slug} project={project} />
-          ))}
-        </div>
-        <div className="text-center mt-10">
-            <Button asChild variant="link" className="text-lg text-accent hover:text-accent/80">
-                <Link href="/proyectos">
-                    Ver todos los proyectos <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-            </Button>
-        </div>
-      </section>
-
-      {/* Facebook Feed Section */}
-      <section className="container mx-auto px-4">
-        <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Noticias Recientes</h2>
-        <div className="bg-card p-6 rounded-lg shadow-lg">
-          <div className="flex items-center text-foreground/70 mb-6">
-            <Facebook className="h-6 w-6 mr-2 text-blue-600" />
-            <span className="font-medium">Últimas publicaciones de nuestra página de Facebook</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mockFacebookPosts.map(post => (
-              <Card key={post.id} className="overflow-hidden transition-shadow duration-300 hover:shadow-xl">
-                <CardHeader className="p-0">
-                  <Image src={post.imageUrl} alt={post.title} width={300} height={200} className="w-full h-auto object-cover aspect-[3/2]" data-ai-hint={post.dataAiHint} />
-                </CardHeader>
-                <CardContent className="p-4">
-                  <h3 className="font-headline text-lg font-semibold mb-1 line-clamp-2">{post.title}</h3>
-                  <p className="text-xs text-muted-foreground flex items-center mb-2">
-                    <CalendarDays className="h-3 w-3 mr-1.5" /> {post.date}
-                  </p>
-                  <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary/80 p-0 h-auto">
-                    <Link href={post.link} target="_blank" rel="noopener noreferrer">
-                      Leer más <ArrowRight className="ml-1 h-3 w-3" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+      {featuredProjects.length > 0 && (
+        <section className="container mx-auto px-4">
+          <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Proyectos Destacados</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {featuredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
             ))}
           </div>
-          <div className="text-center mt-8">
-            <Button variant="outline" asChild className="border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-              <Link href="#" target="_blank" rel="noopener noreferrer"> {/* Replace # with actual Facebook page URL */}
-                <Facebook className="mr-2 h-4 w-4" /> Visitar en Facebook
-              </Link>
-            </Button>
+          <div className="text-center mt-10">
+              <Button asChild variant="link" className="text-lg text-accent hover:text-accent/80">
+                  <Link href="/proyectos">
+                      Ver todos los proyectos <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+              </Button>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Featured Articles Section */}
+      {featuredArticles.length > 0 && (
+        <section className="container mx-auto px-4">
+            <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Artículos Recientes</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {featuredArticles.map(article => (
+                    <ArticleCard key={article.id} article={article} />
+                ))}
+            </div>
+            <div className="text-center mt-10">
+                <Button asChild variant="link" className="text-lg text-accent hover:text-accent/80">
+                    <Link href="/articulos">
+                        Ver todos los artículos <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                </Button>
+            </div>
+        </section>
+      )}
+
+      {/* Tours Section */}
+      {featuredTours.length > 0 && (
+        <section className="container mx-auto px-4">
+            <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Giras y Actividades Recientes</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {featuredTours.map(tour => (
+                <Card key={tour.id} className="bg-card hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                    <CardHeader className="p-0">
+                        <div className="aspect-video relative w-full">
+                            <ImageKitImage
+                                src={tour.imageUrl}
+                                alt={`Imagen de ${tour.title}`}
+                                layout="fill"
+                                objectFit="cover"
+                                className="transform group-hover:scale-105 transition-transform duration-300"
+                                data-ai-hint="tour cover"
+                            />
+                        </div>
+                    </CardHeader>
+                    <CardHeader>
+                        <CardTitle className="flex items-start gap-3">
+                            <MapPin className="h-6 w-6 text-secondary flex-shrink-0 mt-1" />
+                            <span className="font-headline text-xl">{tour.title}</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                        <div className="flex items-center justify-between text-muted-foreground pl-9">
+                            <div className="flex items-center gap-2 text-sm">
+                            <CalendarDays className="h-4 w-4" />
+                            <span>{tour.date}</span>
+                            </div>
+                            <Badge variant={tour.status === 'Realizada' ? 'outline' : 'secondary'}>{tour.status}</Badge>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button asChild variant="outline" className="w-full group">
+                            <Link href={`/giras/${tour.slug}`}>
+                                Ver más detalles <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                            </Link>
+                        </Button>
+                    </CardFooter>
+                </Card>
+                ))}
+            </div>
+            <div className="text-center mt-10">
+                <Button asChild variant="link" className="text-lg text-accent hover:text-accent/80">
+                    <Link href="/giras">
+                        Ver todas las giras <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                </Button>
+            </div>
+        </section>
+      )}
 
       {/* Quick Links Section */}
       <section className="container mx-auto px-4">
@@ -142,20 +279,7 @@ export default function HomePage() {
               </Button>
             </CardFooter>
           </Card>
-          <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
-            <CardHeader>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mouse-pointer-2 h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform"><path d="m14 14 4.07-4.07a1 1 0 0 0 0-1.42L15.5 6a1 1 0 0 0-1.42 0L10 10.07Z"/><path d="m10 10-5.5 5.5a1 1 0 0 0 0 1.41l2.12 2.12a1 1 0 0 0 1.41 0L13.5 13.5Z"/></svg>
-              <CardTitle className="font-headline text-2xl">Simulador Junior</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>Una plataforma interactiva para aprender jugando (¡Próximamente!).</CardDescription>
-            </CardContent>
-            <CardFooter className="justify-center">
-              <Button variant="secondary" disabled>
-                Explorar (Próximamente)
-              </Button>
-            </CardFooter>
-          </Card>
+          
           <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
             <CardHeader>
               <Users className="h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform" />
@@ -170,8 +294,39 @@ export default function HomePage() {
               </Button>
             </CardFooter>
           </Card>
+
+           <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
+            <CardHeader>
+              <Gamepad2 className="h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform" />
+              <CardTitle className="font-headline text-2xl">Simulador Junior</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>¡Una experiencia de aprendizaje interactiva y divertida! (Próximamente)</CardDescription>
+            </CardContent>
+            <CardFooter className="justify-center">
+              <Button asChild variant="default">
+                <Link href="/simulador-junior">Explorar <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </section>
+
+      {/* Contact Section */}
+       <section className="container mx-auto px-4 text-center">
+         <div className="bg-card p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
+            <h2 className="font-headline text-3xl font-semibold text-primary mb-4">Contáctanos</h2>
+            <p className="text-muted-foreground mb-6">
+                ¿Tienes preguntas o quieres colaborar? Nos encantaría saber de ti.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-lg">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <a href="mailto:contacto.tcu.tropical@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
+                    contacto.tcu.tropical@ucr.ac.cr
+                </a>
+            </div>
+         </div>
+       </section>
     </div>
   );
 }

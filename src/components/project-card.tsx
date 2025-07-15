@@ -1,12 +1,13 @@
+
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Project } from '@/lib/projects-data';
+import type { FirestoreProject } from '@/types/project';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 
 interface ProjectCardProps {
-  project: Project;
+  project: FirestoreProject;
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
@@ -15,11 +16,11 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <CardHeader className="p-0">
         <div className="aspect-video relative w-full">
           <Image
-            src={project.imageUrl}
+            src={project.coverImageUrl}
             alt={`Imagen del proyecto ${project.name}`}
             layout="fill"
             objectFit="cover"
-            data-ai-hint={project.dataAiHint}
+            data-ai-hint="project cover"
           />
         </div>
       </CardHeader>

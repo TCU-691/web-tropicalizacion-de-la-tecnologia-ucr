@@ -8,9 +8,7 @@ import { useForm, useFieldArray, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-// Firebase storage imports are removed as we switch to ImageKit
-// import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { db } from '@/lib/firebase'; // storage import removed
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import type { FirestoreCourse } from '@/types/course';
 import { Button } from '@/components/ui/button';
@@ -22,8 +20,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Loader2, AlertTriangle, PlusCircle, Trash2, BookCopy, Film, ListChecks, ArrowLeft, Edit3, Image as ImageIconLucide } from 'lucide-react';
-// Using ImageKit's Image component for consistency if showing existing ImageKit images
 import { Image as ImageKitImage, upload as imageKitUpload, ImageKitAbortError, ImageKitInvalidRequestError, ImageKitServerError, ImageKitUploadNetworkError } from "@imagekit/next";
+import { generateSlug, isSlugUnique } from '@/lib/utils';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -174,6 +172,20 @@ export default function EditCursoPage() {
     if (!currentUser || !courseId || !initialCourseData) return;
     setIsSubmitting(true);
 
+    if (data.titulo !== initialCourseData.titulo) {
+      const newSlug = generateSlug(data.titulo);
+      const slugIsUnique = await isSlugUnique(newSlug, 'courses');
+      if (!slugIsUnique) {
+        toast({
+          title: 'Título Duplicado',
+          description: 'Ya existe un curso con un título muy similar. Por favor, elige un título único.',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     let finalImageUrl = initialCourseData.imagenUrl || DEFAULT_IMAGE_URL;
 
     try {
@@ -216,11 +228,11 @@ export default function EditCursoPage() {
           return;
         }
       }
-      // If no new image file is selected, finalImageUrl remains initialCourseData.imagenUrl
-
+      
       const courseRef = doc(db, 'courses', courseId);
       await updateDoc(courseRef, {
         titulo: data.titulo,
+        slug: generateSlug(data.titulo),
         descripcion: data.descripcion,
         categoria: data.categoria,
         imagenUrl: finalImageUrl,
@@ -352,7 +364,6 @@ export default function EditCursoPage() {
                         <div className="mt-2 mb-4">
                           <Label className="text-xs text-muted-foreground">Imagen Actual:</Label>
                            <div className="relative w-full aspect-video max-w-sm rounded-md overflow-hidden border shadow-sm">
-                            {/* Display existing image, which should be an ImageKit URL */}
                             <ImageKitImage src={currentImageUrl} alt="Imagen actual del curso" layout="fill" objectFit="cover" data-ai-hint="course cover current"/>
                           </div>
                         </div>
@@ -361,7 +372,6 @@ export default function EditCursoPage() {
                         <div className="mt-2 mb-4">
                           <Label className="text-xs text-muted-foreground">Nueva Imagen (Previsualización):</Label>
                           <div className="relative w-full aspect-video max-w-sm rounded-md overflow-hidden border shadow-sm">
-                            {/* Standard img for local Data URL preview */}
                             <img src={newImagePreview} alt="Vista previa de nueva imagen" className="w-full h-full object-cover" data-ai-hint="course cover new preview"/>
                           </div>
                         </div>

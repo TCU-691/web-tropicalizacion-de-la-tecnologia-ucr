@@ -17,6 +17,7 @@ export interface CourseModuleFirestore {
 export interface FirestoreCourse {
   id: string; // Document ID from Firestore
   titulo: string;
+  slug: string;
   descripcion: string;
   categoria: string;
   imagenUrl: string;
@@ -33,6 +34,6 @@ export interface FirestoreCourse {
 
 // Schema for the edit form, similar to upload but might include ID
 export const courseEditSchema = null; // Zod schema will be defined in the edit page component
-export type CourseEditFormValues = Omit<FirestoreCourse, 'id' | 'creadoPor' | 'fechaCreacion' | 'visitas' | 'authorDisplayName' | 'numeroLecciones' | 'fechaActualizacion'> & {
+export type CourseEditFormValues = Omit<FirestoreCourse, 'id' | 'creadoPor' | 'fechaCreacion' | 'visitas' | 'authorDisplayName' | 'numeroLecciones' | 'fechaActualizacion' | 'slug'> & {
   // modules might need slightly different handling if IDs are important for array ops
 };

@@ -11,9 +11,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Menu, TentTree, LogOut, UploadCloud, LayoutDashboard, UserCircle, ChevronDown } from 'lucide-react';
-import { useAuth } from '@/contexts/auth-context';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +18,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
+import { Menu, TentTree, LogOut, UploadCloud, UserCircle, ChevronDown, FolderKanban, Map, FileText, BookCheck, PenSquare } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function Navbar() {
   const { currentUser, userProfile, loading, logout } = useAuth();
@@ -30,18 +31,16 @@ export function Navbar() {
     { href: '/', label: 'Inicio' },
     { href: '/proyectos', label: 'Proyectos' },
     { href: '/cursos-publicos', label: 'Cursos' },
+    { href: '/giras', label: 'Giras' },
+    { href: '/articulos', label: 'Artículos' },
   ];
 
-  const authenticatedNavLinks = [];
-  if (currentUser) {
-    authenticatedNavLinks.push({ href: '/subir-curso', label: 'Subir Curso' });
-    if (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin') {
-      authenticatedNavLinks.push({ href: '/dashboard-aprobaciones', label: 'Aprobaciones' });
-    }
-  }
-  
-  const allNavLinks = [...navLinksBase, ...authenticatedNavLinks];
+  const authenticatedNavLinks = [
+    { href: '/subir-curso', label: 'Subir Curso', icon: UploadCloud },
+    { href: '/crear-articulo', label: 'Escribir Artículo', icon: PenSquare },
+  ];
 
+  const isProfessorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
 
   const renderAuthSection = () => {
     if (loading) {
@@ -63,23 +62,57 @@ export function Navbar() {
               <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Mi Cuenta ({userProfile.rol})</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {userProfile.rol === 'profesor' || userProfile.rol === 'admin' ? (
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard-aprobaciones" className="flex items-center">
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Aprobaciones
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem asChild>
-              <Link href="/subir-curso" className="flex items-center">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Subir Curso
-              </Link>
-            </DropdownMenuItem>
+             <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link href="/subir-curso" className="flex items-center">
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    Subir Curso
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/crear-articulo" className="flex items-center">
+                    <PenSquare className="mr-2 h-4 w-4" />
+                    Escribir Artículo
+                  </Link>
+                </DropdownMenuItem>
+             </DropdownMenuGroup>
+            
+            {isProfessorOrAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Paneles de Profesor</DropdownMenuLabel>
+                 <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard-aprobaciones" className="flex items-center">
+                        <BookCheck className="mr-2 h-4 w-4" />
+                        Panel de Cursos
+                      </Link>
+                    </DropdownMenuItem>
+                     <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-articulos" className="flex items-center">
+                        <FileText className="mr-2 h-4 w-4" />
+                        Panel de Artículos
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-proyectos" className="flex items-center">
+                        <FolderKanban className="mr-2 h-4 w-4" />
+                        Panel de Proyectos
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-giras" className="flex items-center">
+                        <Map className="mr-2 h-4 w-4" />
+                        Panel de Giras
+                      </Link >
+                    </DropdownMenuItem>
+                 </DropdownMenuGroup>
+              </>
+            )}
+
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
@@ -112,23 +145,38 @@ export function Navbar() {
             <p className="px-4 text-sm font-medium text-muted-foreground mb-2">
               {userProfile.displayName || userProfile.email} ({userProfile.rol})
             </p>
-            <SheetClose asChild>
-              <Link
-                href="/subir-curso"
-                className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <UploadCloud className="mr-2 h-5 w-5" /> Subir Curso
-              </Link>
-            </SheetClose>
-            {(userProfile.rol === 'profesor' || userProfile.rol === 'admin') && (
-              <SheetClose asChild>
-                <Link
-                  href="/dashboard-aprobaciones"
-                  className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <LayoutDashboard className="mr-2 h-5 w-5" /> Aprobaciones
-                </Link>
-              </SheetClose>
+             {authenticatedNavLinks.map(link => (
+                <SheetClose asChild key={link.href}>
+                  <Link href={link.href} className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <link.icon className="mr-2 h-5 w-5" /> {link.label}
+                  </Link>
+                </SheetClose>
+            ))}
+            
+             {isProfessorOrAdmin && (
+              <>
+                <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Profesor</p>
+                <SheetClose asChild>
+                  <Link href="/dashboard-aprobaciones" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <BookCheck className="mr-2 h-5 w-5" /> Panel de Cursos
+                  </Link>
+                </SheetClose>
+                 <SheetClose asChild>
+                  <Link href="/profesor/panel-articulos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <FileText className="mr-2 h-5 w-5" /> Panel de Artículos
+                  </Link>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Link href="/profesor/panel-proyectos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <FolderKanban className="mr-2 h-5 w-5" /> Panel de Proyectos
+                  </Link>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Link href="/profesor/panel-giras" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <Map className="mr-2 h-5 w-5" /> Panel de Giras
+                  </Link>
+                </SheetClose>
+              </>
             )}
           </div>
           <SheetClose asChild>
@@ -155,6 +203,7 @@ export function Navbar() {
     );
   }
 
+  const allPublicLinks = [...navLinksBase];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -165,7 +214,7 @@ export function Navbar() {
         </Link>
         
         <nav className="hidden md:flex gap-6 items-center">
-          {navLinksBase.map((link) => (
+          {allPublicLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -186,7 +235,7 @@ export function Navbar() {
                   <span className="sr-only">Abrir menú</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="flex flex-col p-0">
+              <SheetContent className="flex flex-col p-0">
                 <SheetHeader className="p-4 border-b">
                   <SheetTitle>
                     <SheetClose asChild>
@@ -198,7 +247,7 @@ export function Navbar() {
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="flex-grow p-4 space-y-1 overflow-y-auto">
-                  {allNavLinks.map((link) => (
+                  {allPublicLinks.map((link) => (
                     <SheetClose asChild key={link.href}>
                       <Link
                         href={link.href}

@@ -23,8 +23,6 @@ export function CourseCard({ course }: CourseCardProps) {
             objectFit="cover"
             className="transform group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="course cover"
-            // Removed loader prop as ImageKit handles its own loading
-            // transformation={[{ height: 400, width: 600 }]} // Example transformation
           />
         </div>
       </CardHeader>
@@ -39,7 +37,7 @@ export function CourseCard({ course }: CourseCardProps) {
       </CardContent>
       <CardFooter className="p-5 pt-0">
         <Button asChild variant="default" className="w-full">
-          <Link href={`/cursos-publicos/${course.id}`}>
+          <Link href={`/cursos-publicos/${course.slug}`}>
             Ver curso <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </Button>

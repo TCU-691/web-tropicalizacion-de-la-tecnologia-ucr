@@ -6,14 +6,16 @@ import { ArrowLeft, Tag, BookOpen, AlertCircle, Youtube } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getYoutubeEmbedUrl } from '@/lib/utils';
 import { Image as ImageKitImage } from '@imagekit/next'; // Using ImageKit's Image component
+import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 
 interface CoursePageParams {
   params: {
-    slug: string; // This will be the Firestore document ID
+    slug: string;
   };
 }
 
@@ -25,7 +27,7 @@ export async function generateStaticParams() {
   try {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => ({
-      slug: docSnap.id,
+      slug: docSnap.data().slug,
     }));
   } catch (error) {
     console.error("Error generating static params for courses:", error);
@@ -33,49 +35,79 @@ export async function generateStaticParams() {
   }
 }
 
-async function getCourseById(id: string): Promise<FirestoreCourse | null> {
+async function getCourseBySlug(slug: string): Promise<FirestoreCourse | null> {
   if (!db) {
     console.error("Firestore (db) is not initialized.");
     return null;
   }
-  const courseDocRef = doc(db, 'courses', id);
+  const coursesCol = collection(db, 'courses');
+  const q = query(coursesCol, where('slug', '==', slug), where('estado', '==', 'aprobado'), limit(1));
   try {
-    const docSnap = await getDoc(courseDocRef);
-    if (docSnap.exists() && docSnap.data().estado === 'aprobado') {
-      const data = docSnap.data();
-      return { 
-        id: docSnap.id, 
-        ...data,
-        // Ensure dates are strings if they were Timestamps
-        fechaCreacion: data.fechaCreacion?.toDate ? data.fechaCreacion.toDate().toISOString() : String(data.fechaCreacion || ''),
-        fechaActualizacion: data.fechaActualizacion?.toDate ? data.fechaActualizacion.toDate().toISOString() : undefined,
-      } as FirestoreCourse;
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      return null;
     }
-    return null;
+    const docSnap = querySnapshot.docs[0];
+    const data = docSnap.data();
+    return { 
+      id: docSnap.id, 
+      ...data,
+      fechaCreacion: data.fechaCreacion?.toDate ? data.fechaCreacion.toDate().toISOString() : String(data.fechaCreacion || ''),
+      fechaActualizacion: data.fechaActualizacion?.toDate ? data.fechaActualizacion.toDate().toISOString() : undefined,
+    } as FirestoreCourse;
   } catch (error) {
-    console.error("Error fetching course by ID:", error);
+    console.error("Error fetching course by slug:", error);
     return null;
   }
 }
 
-export default async function CoursePage({ params }: CoursePageParams) {
-  const course = await getCourseById(params.slug);
+export async function generateMetadata({ params }: CoursePageParams): Promise<Metadata> {
+  const course = await getCourseBySlug((await params).slug);
 
   if (!course) {
-    return (
-      <div className="text-center py-20">
-        <AlertCircle className="mx-auto h-16 w-16 text-destructive mb-4" />
-        <h1 className="font-headline text-4xl text-destructive mb-4">Curso no encontrado</h1>
-        <p className="text-lg text-muted-foreground mb-8">
-          El curso que buscas no existe, no está aprobado o ha sido movido.
-        </p>
-        <Button asChild>
-          <Link href="/cursos-publicos">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Cursos
-          </Link>
-        </Button>
-      </div>
-    );
+    return {
+      title: 'Curso no encontrado | TCU TC-691',
+      description: 'El curso solicitado no existe o ha sido removido.',
+    };
+  }
+
+  return {
+    title: `${course.titulo} | Cursos Públicos | TCU TC-691`,
+    description: course.descripcion || 'Curso público del TCU TC-691',
+    keywords: [
+      course.categoria,
+      'curso',
+      'TCU',
+      'TC-691',
+      'UCR',
+      'Universidad de Costa Rica',
+      'tropicalización',
+      'tecnología',
+      'educación',
+      'comunidad',
+      'Costa Rica',
+      'aprendizaje',
+      'material educativo',
+    ].filter(Boolean),
+    openGraph: {
+      title: `${course.titulo} | Cursos Públicos | TCU TC-691`,
+      description: course.descripcion,
+      images: course.imagenUrl ? [course.imagenUrl] : [],
+      siteName: 'TCU TC-691',
+      locale: 'es_CR',
+      type: 'article',
+    },
+    alternates: {
+      canonical: `/cursos-publicos/${course.slug}`,
+    },
+  };
+}
+
+export default async function CoursePage({ params }: CoursePageParams) {
+  const course = await getCourseBySlug((await params).slug);
+
+  if (!course) {
+    notFound();
   }
 
   return (
@@ -96,7 +128,6 @@ export default async function CoursePage({ params }: CoursePageParams) {
                 layout="fill"
                 objectFit="cover"
                 data-ai-hint="course banner"
-                // transformation={[{ height: 400, width: 600 }]} // Example transformation
              />
             </div>
           <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">{course.titulo}</h1>

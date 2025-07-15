@@ -19,8 +19,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Loader2, AlertTriangle, PlusCircle, Trash2, BookCopy, Film, ListChecks, Image as ImageIconLucide } from 'lucide-react';
 import Link from 'next/link';
-import NextImageOriginal from 'next/image'; // Keep original for local preview if needed
 import { Image as ImageKitImage, upload as imageKitUpload, ImageKitAbortError, ImageKitInvalidRequestError, ImageKitServerError, ImageKitUploadNetworkError } from "@imagekit/next";
+import { generateSlug, isSlugUnique } from '@/lib/utils';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -122,6 +122,20 @@ export default function SubirCursoPage() {
     }
 
     setIsSubmitting(true);
+    
+    const slug = generateSlug(data.titulo);
+    const slugIsUnique = await isSlugUnique(slug, 'courses');
+
+    if (!slugIsUnique) {
+      toast({
+        title: 'Título Duplicado',
+        description: 'Ya existe un curso con un título muy similar. Por favor, elige un título único.',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+    
     let finalImageUrl = DEFAULT_IMAGE_URL;
 
     try {
@@ -140,19 +154,16 @@ export default function SubirCursoPage() {
         try {
           const uploadResponse = await imageKitUpload({
             file,
-            fileName: file.name, // You can customize the filename
+            fileName: file.name,
             tags: ["course-cover", currentUser.uid],
-            folder: `courses_images/${currentUser.uid}`, // Optional: organize in folders
+            folder: `courses_images/${currentUser.uid}`,
             useUniqueFileName: true,
             publicKey,
             signature,
             expire,
             token,
-            // onProgress: (event) => {
-            //   console.log("ImageKit Upload Progress:", (event.loaded / event.total) * 100);
-            // }
           });
-          finalImageUrl = uploadResponse.url; // Use the URL from ImageKit
+          finalImageUrl = uploadResponse.url;
         } catch (uploadError: any) {
           console.error("Error subiendo imagen a ImageKit: ", uploadError);
           let errorMessage = "Error al subir la imagen a ImageKit.";
@@ -170,6 +181,7 @@ export default function SubirCursoPage() {
       
       await addDoc(collection(db, 'courses'), {
         titulo: data.titulo,
+        slug: slug,
         descripcion: data.descripcion,
         categoria: data.categoria,
         imagenUrl: finalImageUrl,
@@ -333,7 +345,6 @@ export default function SubirCursoPage() {
                         <div className="mt-4">
                           <Label>Vista Previa:</Label>
                           <div className="relative w-full aspect-video max-w-sm rounded-md overflow-hidden border shadow-sm">
-                            {/* Using standard img for local Data URL preview as ImageKitImage needs a path/URL */}
                             <img src={imagePreview} alt="Vista previa de imagen de portada" className="w-full h-full object-cover" data-ai-hint="course cover preview" />
                           </div>
                         </div>

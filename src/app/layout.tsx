@@ -28,13 +28,13 @@ export default function RootLayout({
   }
   
   return (
-    <html lang="es">
+    <html lang="es" className="scroll-smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased flex flex-col min-h-screen">
+      <body className="font-body antialiased flex flex-col min-h-screen bg-background">
         <AuthProvider>
           {/* 
             Pass imageKitUrlEndpoint (which could be undefined) directly.
@@ -45,7 +45,7 @@ export default function RootLayout({
           */}
           <ImageKitProvider urlEndpoint={imageKitUrlEndpoint}>
             <Navbar />
-            <main className="flex-grow container mx-auto px-4 py-8">
+            <main className="flex-grow container mx-auto px-4 py-8 pt-24">
               {children}
             </main>
             <Footer />
