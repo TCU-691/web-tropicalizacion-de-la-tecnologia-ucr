@@ -6,8 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Suspense } from 'react';
 
-export default function UnauthorizedPage() {
+function UnauthorizedClient() {
   const searchParams = useSearchParams();
   const page = searchParams.get('page');
 
@@ -30,5 +31,13 @@ export default function UnauthorizedPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function UnauthorizedPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[calc(100vh-20rem)] py-12">Cargando...</div>}>
+      <UnauthorizedClient />
+    </Suspense>
   );
 }
