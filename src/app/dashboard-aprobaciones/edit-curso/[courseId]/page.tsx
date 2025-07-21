@@ -66,6 +66,11 @@ const courseEditFormSchema = z.object({
 
 type CourseEditFormValues = z.infer<typeof courseEditFormSchema>;
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 export default function EditCursoPage() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -112,6 +117,7 @@ export default function EditCursoPage() {
         setIsLoadingCourse(true);
         setCourseNotFound(false);
         try {
+          assertDb(db);
           const courseDocRef = doc(db, 'courses', courseId);
           const courseDocSnap = await getDoc(courseDocRef);
 
@@ -133,7 +139,7 @@ export default function EditCursoPage() {
                 }))
               })),
             });
-            setCurrentImageUrl(courseData.imagenUrl || DEFAULT_IMAGE_URL);
+            setCurrentImageUrl((courseData.imagenUrl ? courseData.imagenUrl : DEFAULT_IMAGE_URL));
           } else {
             setCourseNotFound(true);
             toast({ title: 'Curso no encontrado', description: 'El curso que intentas editar no existe.', variant: 'destructive' });
@@ -213,6 +219,9 @@ export default function EditCursoPage() {
             expire,
             token,
           });
+          if (!uploadResponse.url) {
+            throw new Error("No se pudo obtener la URL de la imagen subida.");
+          }
           finalImageUrl = uploadResponse.url; // New ImageKit URL
         } catch (uploadError: any) {
           console.error("Error subiendo nueva imagen a ImageKit: ", uploadError);
@@ -229,6 +238,7 @@ export default function EditCursoPage() {
         }
       }
       
+      assertDb(db);
       const courseRef = doc(db, 'courses', courseId);
       await updateDoc(courseRef, {
         titulo: data.titulo,

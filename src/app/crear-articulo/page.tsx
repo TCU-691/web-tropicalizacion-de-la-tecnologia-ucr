@@ -59,6 +59,11 @@ const authenticator = async () => {
     }
 };
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 const uploadImage = async (file: File, folder: string): Promise<string> => {
     const authParams = await authenticator();
     const response = await imageKitUpload({
@@ -68,6 +73,9 @@ const uploadImage = async (file: File, folder: string): Promise<string> => {
         folder,
         useUniqueFileName: true,
     });
+    if (!response.url) {
+      throw new Error("No se pudo obtener la URL de la imagen subida.");
+    }
     return response.url;
 };
 
@@ -122,6 +130,7 @@ export default function CrearArticuloPage() {
     }
 
     try {
+      assertDb(db);
       const coverImageUrl = await uploadImage(data.coverImage[0], `articulos_portadas/${currentUser.uid}`);
       
       await addDoc(collection(db, 'articles'), {

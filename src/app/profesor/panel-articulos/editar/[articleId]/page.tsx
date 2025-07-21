@@ -53,9 +53,17 @@ const authenticator = async () => {
     }
 };
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 const uploadImage = async (file: File, folder: string): Promise<string> => {
     const authParams = await authenticator();
     const response = await imageKitUpload({ file, fileName: file.name, ...authParams, folder, useUniqueFileName: true, });
+    if (!response.url) {
+      throw new Error("No se pudo obtener la URL de la imagen subida.");
+    }
     return response.url;
 };
 
@@ -93,6 +101,7 @@ export default function EditArticuloPage() {
       const fetchArticle = async () => {
         setIsLoadingArticle(true);
         try {
+          assertDb(db);
           const articleDocRef = doc(db, 'articles', articleId);
           const articleDocSnap = await getDoc(articleDocRef);
 
@@ -143,6 +152,7 @@ export default function EditArticuloPage() {
         finalCoverImageUrl = await uploadImage(data.coverImage[0], `articulos_portadas/${currentUser.uid}`);
       }
 
+      assertDb(db);
       const articleRef = doc(db, 'articles', articleId);
       await updateDoc(articleRef, {
         title: data.title,

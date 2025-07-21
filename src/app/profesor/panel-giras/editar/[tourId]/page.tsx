@@ -50,9 +50,17 @@ const authenticator = async () => {
     }
 };
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 const uploadImage = async (file: File, folder: string): Promise<string> => {
     const authParams = await authenticator();
     const response = await imageKitUpload({ file, fileName: file.name, ...authParams, folder, useUniqueFileName: true, });
+    if (!response.url) {
+      throw new Error("No se pudo obtener la URL de la imagen subida.");
+    }
     return response.url;
 };
 
@@ -86,6 +94,7 @@ export default function EditarGiraPage() {
         setIsLoadingTour(true);
         setTourNotFound(false);
         try {
+          assertDb(db);
           const tourDocRef = doc(db, 'tours', tourId);
           const tourDocSnap = await getDoc(tourDocRef);
 
@@ -150,6 +159,7 @@ export default function EditarGiraPage() {
             updatedAt: Timestamp.now(),
         };
 
+        assertDb(db);
         const tourRef = doc(db, 'tours', tourId);
         await updateDoc(tourRef, tourDataToUpdate);
         

@@ -41,6 +41,11 @@ export default function LoginPage() {
   const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
     setIsLoading(true);
     setAuthError(null);
+    if (!auth) {
+      setAuthError('No se pudo conectar con el servicio de autenticación.');
+      setIsLoading(false);
+      return;
+    }
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
@@ -64,6 +69,11 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setAuthError(null);
+    if (!auth) {
+      setAuthError('No se pudo conectar con el servicio de autenticación.');
+      setIsLoading(false);
+      return;
+    }
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);

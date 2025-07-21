@@ -16,6 +16,11 @@ import type { FirestoreProject, HierarchicalProject } from '@/types/project';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 export default function PanelProyectosPage() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -36,6 +41,7 @@ export default function PanelProyectosPage() {
 
   useEffect(() => {
     if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin')) {
+      assertDb(db);
       const projectsCollection = collection(db, 'projects');
       const q = query(projectsCollection, orderBy('createdAt', 'desc'));
 
@@ -82,6 +88,7 @@ export default function PanelProyectosPage() {
 
   const handleDeleteProject = async (projectId: string) => {
     try {
+      assertDb(db);
       await deleteDoc(doc(db, 'projects', projectId));
       toast({
         title: "Proyecto Eliminado",

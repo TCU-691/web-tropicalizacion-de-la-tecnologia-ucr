@@ -49,6 +49,11 @@ interface AuthorCache {
 
 type CourseStatusFilter = 'todos' | 'pendiente' | 'aprobado' | 'rechazado';
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 
 export default function DashboardAprobacionesPage() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
@@ -78,10 +83,7 @@ export default function DashboardAprobacionesPage() {
 
   const fetchAuthorName = useCallback(async (uid: string) => {
     if (authors[uid]) return authors[uid];
-    if (!db) {
-      console.error("DB not initialized for fetchAuthorName");
-      return 'Autor Desconocido';
-    }
+    assertDb(db);
     try {
       const userDocRef = doc(db, 'users', uid);
       const userDocSnap = await getDoc(userDocRef);
@@ -99,15 +101,20 @@ export default function DashboardAprobacionesPage() {
   }, [authors]); // Removed db from dependencies as it's module-scoped
 
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin') && db) {
+    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin')) {
+      assertDb(db);
       const q = query(collection(db, 'courses'), orderBy('fechaCreacion', 'desc'));
       const unsubscribe = onSnapshot(q, async (querySnapshot) => {
         setLoadingCourses(true);
         const coursesDataPromises = querySnapshot.docs.map(async (docVal) => {
           const courseData = { id: docVal.id, ...docVal.data() } as FirestoreCourse;
           // Ensure dates are strings
-          courseData.fechaCreacion = courseData.fechaCreacion?.toDate ? courseData.fechaCreacion.toDate().toISOString() : String(courseData.fechaCreacion || '');
-          courseData.fechaActualizacion = courseData.fechaActualizacion?.toDate ? courseData.fechaActualizacion.toDate().toISOString() : undefined;
+          courseData.fechaCreacion = (courseData.fechaCreacion && typeof courseData.fechaCreacion === 'object' && 'toDate' in courseData.fechaCreacion && typeof (courseData.fechaCreacion as { toDate?: () => Date }).toDate === 'function')
+            ? (courseData.fechaCreacion as { toDate: () => Date }).toDate().toISOString()
+            : String(courseData.fechaCreacion || '');
+          courseData.fechaActualizacion = (courseData.fechaActualizacion && typeof courseData.fechaActualizacion === 'object' && 'toDate' in courseData.fechaActualizacion && typeof (courseData.fechaActualizacion as { toDate?: () => Date }).toDate === 'function')
+            ? (courseData.fechaActualizacion as { toDate: () => Date }).toDate().toISOString()
+            : courseData.fechaActualizacion ? String(courseData.fechaActualizacion) : undefined;
           
           if (!authors[courseData.creadoPor]) {
             await fetchAuthorName(courseData.creadoPor);
@@ -146,7 +153,7 @@ export default function DashboardAprobacionesPage() {
   };
 
   const updateCourseStatus = async (courseId: string, newStatus: 'aprobado' | 'rechazado') => {
-    if (!db) return;
+    assertDb(db);
     try {
       const courseRef = doc(db, 'courses', courseId);
       await updateDoc(courseRef, { estado: newStatus, fechaActualizacion: Timestamp.now() });
@@ -159,7 +166,7 @@ export default function DashboardAprobacionesPage() {
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    if (!db) return;
+    assertDb(db);
     setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'courses', courseId));

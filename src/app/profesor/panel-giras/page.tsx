@@ -14,6 +14,10 @@ import { db } from '@/lib/firebase';
 import type { FirestoreTour } from '@/types/tour';
 import { TourAdminCard } from '@/components/tour-admin-card';
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
 
 export default function PanelGirasPage() {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
@@ -35,6 +39,7 @@ export default function PanelGirasPage() {
 
   useEffect(() => {
     if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin')) {
+      assertDb(db);
       const toursCollection = collection(db, 'tours');
       const q = query(toursCollection, orderBy('createdAt', 'desc'));
 
@@ -57,6 +62,7 @@ export default function PanelGirasPage() {
 
   const handleDeleteTour = async (tourId: string) => {
     try {
+      assertDb(db);
       await deleteDoc(doc(db, 'tours', tourId));
       toast({
         title: "Gira Eliminada",

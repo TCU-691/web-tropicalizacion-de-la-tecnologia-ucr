@@ -100,9 +100,17 @@ const authenticator = async () => {
     }
 };
 
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
+
 const uploadImage = async (file: File, folder: string): Promise<string> => {
     const authParams = await authenticator();
     const response = await imageKitUpload({ file, fileName: file.name, ...authParams, folder, useUniqueFileName: true, });
+    if (!response.url) {
+      throw new Error("No se pudo obtener la URL de la imagen subida.");
+    }
     return response.url;
 };
 
@@ -143,6 +151,7 @@ export default function EditarProyectoPage() {
         setIsLoadingProject(true);
         setProjectNotFound(false);
         try {
+          assertDb(db);
           const projectDocRef = doc(db, 'projects', projectId);
           const projectDocSnap = await getDoc(projectDocRef);
 
@@ -219,7 +228,7 @@ export default function EditarProyectoPage() {
                                         const imageUrl = await uploadImage(img.imageFile[0], `proyectos_carruseles/${currentUser.uid}`);
                                         return { id: img.id, imageUrl };
                                     }
-                                    const initialImage = (initialBlock as any)?.images?.find(i => i.id === img.id);
+                                    const initialImage = (initialBlock as any)?.images?.find((i: any) => i.id === img.id);
                                     return { id: img.id, imageUrl: initialImage?.imageUrl || '' };
                                 })
                             );
@@ -253,6 +262,7 @@ export default function EditarProyectoPage() {
             updatedAt: Timestamp.now(),
         };
 
+        assertDb(db);
         const projectRef = doc(db, 'projects', projectId);
         await updateDoc(projectRef, projectDataToUpdate);
         
@@ -382,30 +392,34 @@ export default function EditarProyectoPage() {
 function PapersFieldArray({ blockIndex }: { blockIndex: number }) {
   const { control, formState: { errors } } = useFormContext<ProjectEditFormValues>();
   const { fields, append, remove } = useFieldArray({ control, name: `blocks.${blockIndex}.papers`, });
-  const blockErrors = errors.blocks?.[blockIndex]?.papers;
-  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Publicaciones</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Publicación {index + 1}</Label>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input placeholder="Título del paper" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.authors`} render={({ field }) => (<FormItem><FormLabel>Autores</FormLabel><FormControl><Input placeholder="Ej: J. Smith, A. Jones" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.link`} render={({ field }) => (<FormItem><FormLabel>Enlace (DOI/PDF)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.year`} render={({ field }) => (<FormItem><FormLabel>Año</FormLabel><FormControl><Input placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>)} /></div></div>))}{typeof blockErrors === 'object' && !('message' in blockErrors) && blockErrors?.root && (<FormMessage>{blockErrors.root.message}</FormMessage>)}<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', authors: '', link: '', year: '' })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Publicación</Button></div>);
+  const blockError = errors.blocks?.[blockIndex];
+  const papersError = blockError && typeof blockError === 'object' && 'papers' in blockError ? (blockError as any).papers : undefined;
+  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Publicaciones</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Publicación {index + 1}</Label>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input placeholder="Título del paper" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.authors`} render={({ field }) => (<FormItem><FormLabel>Autores</FormLabel><FormControl><Input placeholder="Ej: J. Smith, A. Jones" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.link`} render={({ field }) => (<FormItem><FormLabel>Enlace (DOI/PDF)</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.papers.${index}.year`} render={({ field }) => (<FormItem><FormLabel>Año</FormLabel><FormControl><Input placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>)} /></div></div>))}{typeof papersError === 'object' && papersError?.root && (<FormMessage>{papersError.root.message}</FormMessage>)}<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', authors: '', link: '', year: '' })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Publicación</Button></div>);
 }
 function CarouselFieldArray({ blockIndex }: { blockIndex: number }) {
   const { control, formState: { errors } } = useFormContext<ProjectEditFormValues>();
   const { fields, append, remove } = useFieldArray({ control, name: `blocks.${blockIndex}.images`, });
-  const blockErrors = errors.blocks?.[blockIndex]?.images;
-  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Imágenes del Carrusel (Mín. 2, Máx. 5)</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Imagen {index + 1}</Label>{fields.length > 2 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><FormField control={control} name={`blocks.${blockIndex}.images.${index}.imageFile`} render={({ field: { onChange } }) => ( <FormItem><FormControl><Input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>)} /></div>))}{typeof blockErrors === 'object' && !Array.isArray(blockErrors) && blockErrors?.root && (<FormMessage>{blockErrors.root.message}</FormMessage>)}{fields.length < 5 && (<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID() })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Imagen</Button>)}</div>);
+  const blockError = errors.blocks?.[blockIndex];
+  const imagesError = blockError && typeof blockError === 'object' && 'images' in blockError ? (blockError as any).images : undefined;
+  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Imágenes del Carrusel (Mín. 2, Máx. 5)</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Imagen {index + 1}</Label>{fields.length > 2 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><FormField control={control} name={`blocks.${blockIndex}.images.${index}.imageFile`} render={({ field: { onChange } }) => ( <FormItem><FormControl><Input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>)} /></div>))}{typeof imagesError === 'object' && imagesError?.root && (<FormMessage>{imagesError.root.message}</FormMessage>)}{fields.length < 5 && (<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID() })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Imagen</Button>)}</div>);
 }
 function ResourcesFieldArray({ blockIndex }: { blockIndex: number }) {
   const { control, formState: { errors } } = useFormContext<ProjectEditFormValues>();
   const { fields, append, remove } = useFieldArray({ control, name: `blocks.${blockIndex}.resources`, });
-  const blockErrors = errors.blocks?.[blockIndex]?.resources;
-  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Recursos</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Recurso {index + 1}</Label>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><div className="space-y-4"><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Título del Recurso</FormLabel><FormControl><Input placeholder="Ej: Documentación Oficial" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.link`} render={({ field }) => (<FormItem><FormLabel>Enlace al Recurso</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Breve descripción del recurso..." {...field} rows={2} /></FormControl><FormMessage /></FormItem>)} /></div></div>))}{typeof blockErrors === 'object' && !('message' in blockErrors) && blockErrors?.root && (<FormMessage>{blockErrors.root.message}</FormMessage>)}<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', description: '', link: '' })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Recurso</Button></div>);
+  const blockError = errors.blocks?.[blockIndex];
+  const resourcesError = blockError && typeof blockError === 'object' && 'resources' in blockError ? (blockError as any).resources : undefined;
+  return (<div className="space-y-4 pl-4 border-l-2"><FormLabel>Recursos</FormLabel>{fields.map((field, index) => (<div key={field.id} className="p-3 border rounded-md bg-card/80 shadow-sm relative"><div className='flex justify-between items-center mb-2'><Label className="text-xs text-muted-foreground">Recurso {index + 1}</Label>{fields.length > 1 && (<Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button>)}</div><div className="space-y-4"><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.title`} render={({ field }) => (<FormItem><FormLabel>Título del Recurso</FormLabel><FormControl><Input placeholder="Ej: Documentación Oficial" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.link`} render={({ field }) => (<FormItem><FormLabel>Enlace al Recurso</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={control} name={`blocks.${blockIndex}.resources.${index}.description`} render={({ field }) => (<FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Breve descripción del recurso..." {...field} rows={2} /></FormControl><FormMessage /></FormItem>)} /></div></div>))}{typeof resourcesError === 'object' && resourcesError?.root && (<FormMessage>{resourcesError.root.message}</FormMessage>)}<Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', description: '', link: '' })}><PlusCircle className="mr-2 h-4 w-4" />Añadir Recurso</Button></div>);
 }
 
 function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
-  const { control, formState: { errors } } = useFormContext<ProjectFormValues>();
+  const { control, formState: { errors } } = useFormContext<ProjectEditFormValues>();
   const [courses, setCourses] = useState<FirestoreCourse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
+        assertDb(db);
         const coursesCol = collection(db, 'courses');
         const q = query(coursesCol, where('estado', '==', 'aprobado'));
         const querySnapshot = await getDocs(q);
@@ -428,7 +442,8 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
       return <p className="text-sm text-muted-foreground">No hay cursos aprobados disponibles para seleccionar.</p>
   }
 
-  const blockErrors = errors.blocks?.[blockIndex]?.courseIds;
+  const blockError = errors.blocks?.[blockIndex];
+  const courseIdsError = blockError && typeof blockError === 'object' && 'courseIds' in blockError ? (blockError as any).courseIds : undefined;
 
   return (
     <FormField
@@ -462,9 +477,7 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
                             return checked
                                 ? field.onChange([...(field.value || []), course.id])
                                 : field.onChange(
-                                    (field.value || []).filter(
-                                    (value) => value !== course.id
-                                    )
+                                    (field.value || []).filter((value: string) => value !== course.id)
                                 );
                             }}
                         />
@@ -479,7 +492,7 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
             ))}
             </div>
           </ScrollArea>
-           {blockErrors && <FormMessage>{blockErrors.message}</FormMessage>}
+           {courseIdsError && <FormMessage>{courseIdsError.message}</FormMessage>}
         </FormItem>
       )}
     />

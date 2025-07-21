@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray, type SubmitHandler, FormProvider, useFormContext } from 'react-hook-form';
@@ -88,8 +88,16 @@ const uploadImage = async (file: File, folder: string): Promise<string> => {
         folder,
         useUniqueFileName: true,
     });
+    if (!response.url) {
+        throw new Error("No se pudo obtener la URL de la imagen subida.");
+    }
     return response.url;
 };
+
+// --- Firestore null check helper ---
+function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
+  if (!db) throw new Error('Firestore no está inicializado');
+}
 
 export default function CrearProyectoPage() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -117,6 +125,7 @@ export default function CrearProyectoPage() {
   useEffect(() => {
     if (parentId) {
       const fetchParentProject = async () => {
+        assertDb(db);
         const parentDoc = await getDoc(doc(db, 'projects', parentId));
         if (parentDoc.exists()) {
           setParentProjectName(parentDoc.data().name);
@@ -195,11 +204,12 @@ export default function CrearProyectoPage() {
           delete finalBlock.imageFile;
         }
         if (block.type === 'carousel') {
-          finalBlock.images = block.images.map(img => ({ id: img.id, imageUrl: img.imageUrl }));
+          finalBlock.images = block.images.map((img: any) => ({ id: img.id, imageUrl: img.imageUrl }));
         }
         return finalBlock;
       }).filter(Boolean);
 
+      assertDb(db);
       const projectDataToSave: any = {
         name: data.name,
         slug: slug,
@@ -252,194 +262,196 @@ export default function CrearProyectoPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <Button asChild variant="outline" className="mb-6 group">
-        <Link href="/profesor/panel-proyectos">
-          <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-          Volver al Panel de Proyectos
-        </Link>
-      </Button>
+    <Suspense fallback={<div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]"><Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /><p className="text-muted-foreground">Cargando...</p></div>}>
+      <div className="container mx-auto py-8">
+        <Button asChild variant="outline" className="mb-6 group">
+          <Link href="/profesor/panel-proyectos">
+            <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Volver al Panel de Proyectos
+          </Link>
+        </Button>
 
-      <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
-          <Card className="max-w-4xl mx-auto shadow-xl">
-            <CardHeader className="text-center">
-              <CardTitle className="font-headline text-3xl md:text-4xl">
-                {parentId ? 'Crear Subproyecto' : 'Crear Nuevo Proyecto'}
-              </CardTitle>
-              <CardDescription className="text-lg text-foreground/70">
-                 {parentId && parentProjectName ? (
-                    <>Creando un subproyecto para: <span className="font-semibold text-primary">{parentProjectName}</span></>
-                 ) : (
-                    'Completa la información y añade bloques de contenido para dar vida a tu proyecto.'
-                 )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-10">
-              
-              <section className="space-y-6 p-6 border rounded-lg shadow-sm bg-card">
-                <h2 className="font-headline text-2xl font-semibold text-primary flex items-center"><BookCopy className="mr-2 h-6 w-6"/>Información Básica del Proyecto</h2>
-                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nombre del Proyecto</FormLabel><FormControl><Input placeholder="Ej: Plataforma de Reciclaje Inteligente" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="category" render={({ field }) => ( <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger></FormControl><SelectContent>{categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Descripción Corta (Resumen)</FormLabel><FormControl><Textarea placeholder="Un resumen conciso..." {...field} rows={3} /></FormControl><FormDescription>Máximo 300 caracteres. Aparecerá en las tarjetas.</FormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="longDescription" render={({ field }) => ( <FormItem><FormLabel>Detalles del Proyecto (Descripción Larga)</FormLabel><FormControl><Textarea placeholder="Explica en detalle los objetivos, metodología, etc." {...field} rows={8} /></FormControl><FormDescription>Este es el contenido principal que se mostrará en la página del proyecto.</FormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="coverImage" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground" />Imagen de Portada (Obligatoria)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="file" 
-                        accept="image/png, image/jpeg, image/jpg, image/webp"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          field.onChange(e.target.files);
-                          if (file && ACCEPTED_IMAGE_TYPES.includes(file.type) && file.size <= MAX_FILE_SIZE) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setImagePreview(reader.result as string);
-                            reader.readAsDataURL(file);
-                          } else {
-                            setImagePreview(null);
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>Sube una imagen (JPG, PNG, WEBP). Máx 5MB.</FormDescription>
-                    {imagePreview && (
-                      <div className="mt-4"><img src={imagePreview} alt="Vista previa" className="w-full max-w-sm rounded-md border shadow-sm aspect-video object-cover" data-ai-hint="project cover preview" /></div>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </section>
+        <FormProvider {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
+            <Card className="max-w-4xl mx-auto shadow-xl">
+              <CardHeader className="text-center">
+                <CardTitle className="font-headline text-3xl md:text-4xl">
+                  {parentId ? 'Crear Subproyecto' : 'Crear Nuevo Proyecto'}
+                </CardTitle>
+                <CardDescription className="text-lg text-foreground/70">
+                   {parentId && parentProjectName ? (
+                      <>Creando un subproyecto para: <span className="font-semibold text-primary">{parentProjectName}</span></>
+                   ) : (
+                      'Completa la información y añade bloques de contenido para dar vida a tu proyecto.'
+                   )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-10">
+                
+                <section className="space-y-6 p-6 border rounded-lg shadow-sm bg-card">
+                  <h2 className="font-headline text-2xl font-semibold text-primary flex items-center"><BookCopy className="mr-2 h-6 w-6"/>Información Básica del Proyecto</h2>
+                  <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Nombre del Proyecto</FormLabel><FormControl><Input placeholder="Ej: Plataforma de Reciclaje Inteligente" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="category" render={({ field }) => ( <FormItem><FormLabel>Categoría</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona una categoría" /></SelectTrigger></FormControl><SelectContent>{categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Descripción Corta (Resumen)</FormLabel><FormControl><Textarea placeholder="Un resumen conciso..." {...field} rows={3} /></FormControl><FormDescription>Máximo 300 caracteres. Aparecerá en las tarjetas.</FormDescription><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="longDescription" render={({ field }) => ( <FormItem><FormLabel>Detalles del Proyecto (Descripción Larga)</FormLabel><FormControl><Textarea placeholder="Explica en detalle los objetivos, metodología, etc." {...field} rows={8} /></FormControl><FormDescription>Este es el contenido principal que se mostrará en la página del proyecto.</FormDescription><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="coverImage" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground" />Imagen de Portada (Obligatoria)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="file" 
+                          accept="image/png, image/jpeg, image/jpg, image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            field.onChange(e.target.files);
+                            if (file && ACCEPTED_IMAGE_TYPES.includes(file.type) && file.size <= MAX_FILE_SIZE) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => setImagePreview(reader.result as string);
+                              reader.readAsDataURL(file);
+                            } else {
+                              setImagePreview(null);
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>Sube una imagen (JPG, PNG, WEBP). Máx 5MB.</FormDescription>
+                      {imagePreview && (
+                        <div className="mt-4"><img src={imagePreview} alt="Vista previa" className="w-full max-w-sm rounded-md border shadow-sm aspect-video object-cover" data-ai-hint="project cover preview" /></div>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </section>
 
-              <section className="space-y-6 p-6 border rounded-lg shadow-sm bg-card">
-                 <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
-                    <h2 className="font-headline text-2xl font-semibold text-primary flex items-center"><Puzzle className="mr-2 h-6 w-6"/>Contenido Personalizado</h2>
-                    <div className='flex flex-wrap gap-2'>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'text', title: '', content: '' })}>
-                            <Text className="mr-2 h-4 w-4" /> Texto
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'video', title: '', youtubeUrl: '' })}>
-                            <Youtube className="mr-2 h-4 w-4" /> Video
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'image', title: '', imageFile: new DataTransfer().files, description: '' })}>
-                            <ImageIcon className="mr-2 h-4 w-4" /> Imagen
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'carousel', title: '', images: [{id: crypto.randomUUID(), imageFile: new DataTransfer().files}, {id: crypto.randomUUID(), imageFile: new DataTransfer().files}], description: '' })}>
-                            <Images className="mr-2 h-4 w-4" /> Carrusel
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'link', title: '', url: '', description: '' })}>
-                            <Link2 className="mr-2 h-4 w-4" /> Enlace
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'contact', title: 'Contacto', name: '', email: '', phone: '', socialLink: '' })}>
-                            <Contact className="mr-2 h-4 w-4" /> Contacto
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'papers', title: 'Publicaciones', papers: [{ id: crypto.randomUUID(), title: '', authors: '', link: '', year: ''}] })}>
-                            <Newspaper className="mr-2 h-4 w-4" /> Publicaciones
-                        </Button>
-                         <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'resources', title: 'Recursos Adicionales', resources: [{ id: crypto.randomUUID(), title: '', description: '', link: ''}] })}>
-                            <FolderArchive className="mr-2 h-4 w-4" /> Recursos
-                        </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'relatedCourses', title: 'Cursos Relacionados', courseIds: [] })}>
-                            <BookHeart className="mr-2 h-4 w-4" /> Cursos
-                        </Button>
-                    </div>
-                 </div>
-                 
-                 <div className="space-y-6">
-                    {blockFields.map((block, index) => (
-                      <Card key={block.id} className="p-4 bg-muted/30 relative">
-                        <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeBlock(index)}>
-                          <Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar bloque</span>
-                        </Button>
-                        
-                        {block.type === 'text' && (<div className="space-y-4 pr-10">
-                            <h3 className="font-medium text-lg flex items-center"><Text className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Texto</h3>
-                            <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Metodología del Proyecto" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name={`blocks.${index}.content`} render={({ field }) => ( <FormItem><FormLabel>Contenido</FormLabel><FormControl><Textarea placeholder="Describe el contenido de esta sección..." {...field} rows={6} /></FormControl><FormMessage /></FormItem> )} />
-                        </div>)}
+                <section className="space-y-6 p-6 border rounded-lg shadow-sm bg-card">
+                   <div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-4">
+                      <h2 className="font-headline text-2xl font-semibold text-primary flex items-center"><Puzzle className="mr-2 h-6 w-6"/>Contenido Personalizado</h2>
+                      <div className='flex flex-wrap gap-2'>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'text', title: '', content: '' })}>
+                              <Text className="mr-2 h-4 w-4" /> Texto
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'video', title: '', youtubeUrl: '' })}>
+                              <Youtube className="mr-2 h-4 w-4" /> Video
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'image', title: '', imageFile: new DataTransfer().files, description: '' })}>
+                              <ImageIcon className="mr-2 h-4 w-4" /> Imagen
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'carousel', title: '', images: [{id: crypto.randomUUID(), imageFile: new DataTransfer().files}, {id: crypto.randomUUID(), imageFile: new DataTransfer().files}], description: '' })}>
+                              <Images className="mr-2 h-4 w-4" /> Carrusel
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'link', title: '', url: '', description: '' })}>
+                              <Link2 className="mr-2 h-4 w-4" /> Enlace
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'contact', title: 'Contacto', name: '', email: '', phone: '', socialLink: '' })}>
+                              <Contact className="mr-2 h-4 w-4" /> Contacto
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'papers', title: 'Publicaciones', papers: [{ id: crypto.randomUUID(), title: '', authors: '', link: '', year: ''}] })}>
+                              <Newspaper className="mr-2 h-4 w-4" /> Publicaciones
+                          </Button>
+                           <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'resources', title: 'Recursos Adicionales', resources: [{ id: crypto.randomUUID(), title: '', description: '', link: ''}] })}>
+                              <FolderArchive className="mr-2 h-4 w-4" /> Recursos
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'relatedCourses', title: 'Cursos Relacionados', courseIds: [] })}>
+                              <BookHeart className="mr-2 h-4 w-4" /> Cursos
+                          </Button>
+                      </div>
+                   </div>
+                   
+                   <div className="space-y-6">
+                      {blockFields.map((block, index) => (
+                        <Card key={block.id} className="p-4 bg-muted/30 relative">
+                          <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeBlock(index)}>
+                            <Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar bloque</span>
+                          </Button>
+                          
+                          {block.type === 'text' && (<div className="space-y-4 pr-10">
+                              <h3 className="font-medium text-lg flex items-center"><Text className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Texto</h3>
+                              <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Metodología del Proyecto" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                              <FormField control={form.control} name={`blocks.${index}.content`} render={({ field }) => ( <FormItem><FormLabel>Contenido</FormLabel><FormControl><Textarea placeholder="Describe el contenido de esta sección..." {...field} rows={6} /></FormControl><FormMessage /></FormItem> )} />
+                          </div>)}
 
-                        {block.type === 'video' && (<div className="space-y-4 pr-10">
-                            <h3 className="font-medium text-lg flex items-center"><Youtube className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Video</h3>
-                            <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Video</FormLabel><FormControl><Input placeholder="Ej: Demostración del Prototipo" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                            <FormField control={form.control} name={`blocks.${index}.youtubeUrl`} render={({ field }) => ( <FormItem><FormLabel>URL de YouTube</FormLabel><FormControl><Input type="url" placeholder="https://www.youtube.com/watch?v=..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        </div>)}
+                          {block.type === 'video' && (<div className="space-y-4 pr-10">
+                              <h3 className="font-medium text-lg flex items-center"><Youtube className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Video</h3>
+                              <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Video</FormLabel><FormControl><Input placeholder="Ej: Demostración del Prototipo" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                              <FormField control={form.control} name={`blocks.${index}.youtubeUrl`} render={({ field }) => ( <FormItem><FormLabel>URL de YouTube</FormLabel><FormControl><Input type="url" placeholder="https://www.youtube.com/watch?v=..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                          </div>)}
 
-                        {block.type === 'image' && (<div className="space-y-4 pr-10">
-                             <h3 className="font-medium text-lg flex items-center"><ImageIcon className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Imagen</h3>
-                             <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título de la Imagen</FormLabel><FormControl><Input placeholder="Ej: Prototipo V1" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.imageFile`} render={({ field }) => ( <FormItem><FormLabel>Archivo de Imagen</FormLabel><FormControl><Input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente la imagen..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
-                        </div>)}
-                        
-                        {block.type === 'carousel' && (
-                            <div className="space-y-4 pr-10">
-                                <h3 className="font-medium text-lg flex items-center"><Images className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Carrusel</h3>
-                                <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Carrusel</FormLabel><FormControl><Input placeholder="Ej: Galería de Prototipos" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente la galería..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
-                                <CarouselFieldArray blockIndex={index} />
-                            </div>
-                        )}
+                          {block.type === 'image' && (<div className="space-y-4 pr-10">
+                               <h3 className="font-medium text-lg flex items-center"><ImageIcon className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Imagen</h3>
+                               <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título de la Imagen</FormLabel><FormControl><Input placeholder="Ej: Prototipo V1" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.imageFile`} render={({ field }) => ( <FormItem><FormLabel>Archivo de Imagen</FormLabel><FormControl><Input type="file" accept="image/png, image/jpeg, image/jpg, image/webp" onChange={(e) => field.onChange(e.target.files)} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente la imagen..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
+                          </div>)}
+                          
+                          {block.type === 'carousel' && (
+                              <div className="space-y-4 pr-10">
+                                  <h3 className="font-medium text-lg flex items-center"><Images className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Carrusel</h3>
+                                  <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Carrusel</FormLabel><FormControl><Input placeholder="Ej: Galería de Prototipos" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                  <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente la galería..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
+                                  <CarouselFieldArray blockIndex={index} />
+                              </div>
+                          )}
 
-                        {block.type === 'link' && (<div className="space-y-4 pr-10">
-                             <h3 className="font-medium text-lg flex items-center"><Link2 className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Enlace Externo</h3>
-                             <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Enlace</FormLabel><FormControl><Input placeholder="Ej: Repositorio en GitHub" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.url`} render={({ field }) => ( <FormItem><FormLabel>URL</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente a qué dirige este enlace..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
-                        </div>)}
+                          {block.type === 'link' && (<div className="space-y-4 pr-10">
+                               <h3 className="font-medium text-lg flex items-center"><Link2 className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Enlace Externo</h3>
+                               <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Enlace</FormLabel><FormControl><Input placeholder="Ej: Repositorio en GitHub" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.url`} render={({ field }) => ( <FormItem><FormLabel>URL</FormLabel><FormControl><Input type="url" placeholder="https://..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.description`} render={({ field }) => ( <FormItem><FormLabel>Descripción (Opcional)</FormLabel><FormControl><Textarea placeholder="Describe brevemente a qué dirige este enlace..." {...field} rows={2} /></FormControl><FormMessage /></FormItem> )} />
+                          </div>)}
 
-                        {block.type === 'contact' && (<div className="space-y-4 pr-10">
-                             <h3 className="font-medium text-lg flex items-center"><Contact className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Contacto</h3>
-                             <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Responsable del Proyecto" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Nombre de Contacto</FormLabel><FormControl><Input placeholder="Ej: Dr. Alan Grant" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.email`} render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="contacto@universidad.ac.cr" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Teléfono (Opcional)</FormLabel><FormControl><Input placeholder="+506 8888-8888" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                             <FormField control={form.control} name={`blocks.${index}.socialLink`} render={({ field }) => ( <FormItem><FormLabel>Enlace a Red Social (Opcional)</FormLabel><FormControl><Input type="url" placeholder="https://www.linkedin.com/in/..." {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        </div>)}
+                          {block.type === 'contact' && (<div className="space-y-4 pr-10">
+                               <h3 className="font-medium text-lg flex items-center"><Contact className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Contacto</h3>
+                               <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Responsable del Proyecto" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Nombre de Contacto</FormLabel><FormControl><Input placeholder="Ej: Dr. Alan Grant" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.email`} render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="contacto@universidad.ac.cr" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.phone`} render={({ field }) => ( <FormItem><FormLabel>Teléfono (Opcional)</FormLabel><FormControl><Input placeholder="+506 8888-8888" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                               <FormField control={form.control} name={`blocks.${index}.socialLink`} render={({ field }) => ( <FormItem><FormLabel>Enlace a Red Social (Opcional)</FormLabel><FormControl><Input type="url" placeholder="https://www.linkedin.com/in/..." {...field} /></FormControl><FormMessage /></FormItem> )} />
+                          </div>)}
 
-                        {block.type === 'papers' && (
-                            <div className="space-y-4 pr-10">
-                                <h3 className="font-medium text-lg flex items-center"><Newspaper className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Publicaciones</h3>
-                                <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Artículos Relevantes" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <PapersFieldArray blockIndex={index} />
-                            </div>
-                        )}
+                          {block.type === 'papers' && (
+                              <div className="space-y-4 pr-10">
+                                  <h3 className="font-medium text-lg flex items-center"><Newspaper className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Publicaciones</h3>
+                                  <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Artículos Relevantes" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                  <PapersFieldArray blockIndex={index} />
+                              </div>
+                          )}
 
-                        {block.type === 'resources' && (
-                            <div className="space-y-4 pr-10">
-                                <h3 className="font-medium text-lg flex items-center"><FolderArchive className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Recursos</h3>
-                                <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Materiales Adicionales" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <ResourcesFieldArray blockIndex={index} />
-                            </div>
-                        )}
-                        
-                        {block.type === 'relatedCourses' && (
-                            <div className="space-y-4 pr-10">
-                                <h3 className="font-medium text-lg flex items-center"><BookHeart className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Cursos Relacionados</h3>
-                                <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Cursos para Empezar" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <RelatedCoursesBlockSelector blockIndex={index} />
-                            </div>
-                        )}
+                          {block.type === 'resources' && (
+                              <div className="space-y-4 pr-10">
+                                  <h3 className="font-medium text-lg flex items-center"><FolderArchive className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Recursos</h3>
+                                  <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Materiales Adicionales" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                  <ResourcesFieldArray blockIndex={index} />
+                              </div>
+                          )}
+                          
+                          {block.type === 'relatedCourses' && (
+                              <div className="space-y-4 pr-10">
+                                  <h3 className="font-medium text-lg flex items-center"><BookHeart className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Cursos Relacionados</h3>
+                                  <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Cursos para Empezar" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                  <RelatedCoursesBlockSelector blockIndex={index} />
+                              </div>
+                          )}
 
-                      </Card>
-                    ))}
-                    {blockFields.length === 0 && (
-                        <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/50">
-                            <p className="text-sm text-muted-foreground">Añade bloques de contenido para estructurar tu proyecto.</p>
-                        </div>
-                    )}
-                 </div>
-              </section>
+                        </Card>
+                      ))}
+                      {blockFields.length === 0 && (
+                          <div className="text-center py-10 border-2 border-dashed rounded-lg bg-muted/50">
+                              <p className="text-sm text-muted-foreground">Añade bloques de contenido para estructurar tu proyecto.</p>
+                          </div>
+                      )}
+                   </div>
+                </section>
 
-              <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                {isSubmitting ? 'Guardando...' : 'Guardar Proyecto'}
-              </Button>
-            </CardContent>
-          </Card>
-        </form>
-      </FormProvider>
-    </div>
+                <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                  {isSubmitting ? 'Guardando...' : 'Guardar Proyecto'}
+                </Button>
+              </CardContent>
+            </Card>
+          </form>
+        </FormProvider>
+      </div>
+    </Suspense>
   );
 }
 
@@ -451,7 +463,8 @@ function PapersFieldArray({ blockIndex }: { blockIndex: number }) {
     name: `blocks.${blockIndex}.papers`,
   });
 
-  const blockErrors = errors.blocks?.[blockIndex]?.papers;
+  const blockError = errors.blocks?.[blockIndex];
+  const papersError = blockError && typeof blockError === 'object' && 'papers' in blockError ? (blockError as any).papers : undefined;
 
   return (
     <div className="space-y-4 pl-4 border-l-2">
@@ -474,8 +487,8 @@ function PapersFieldArray({ blockIndex }: { blockIndex: number }) {
             </div>
         </div>
       ))}
-       {typeof blockErrors === 'object' && !('message' in blockErrors) && blockErrors?.root && (
-         <FormMessage>{blockErrors.root.message}</FormMessage>
+       {typeof papersError === 'object' && papersError?.root && (
+         <FormMessage>{papersError.root.message}</FormMessage>
        )}
       <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', authors: '', link: '', year: '' })}>
         <PlusCircle className="mr-2 h-4 w-4" /> Añadir Publicación
@@ -492,7 +505,8 @@ function CarouselFieldArray({ blockIndex }: { blockIndex: number }) {
     name: `blocks.${blockIndex}.images`,
   });
 
-  const blockErrors = errors.blocks?.[blockIndex]?.images;
+  const blockError = errors.blocks?.[blockIndex];
+  const imagesError = blockError && typeof blockError === 'object' && 'images' in blockError ? (blockError as any).images : undefined;
   
   return (
     <div className="space-y-4 pl-4 border-l-2">
@@ -521,8 +535,8 @@ function CarouselFieldArray({ blockIndex }: { blockIndex: number }) {
             />
         </div>
       ))}
-      {typeof blockErrors === 'object' && !Array.isArray(blockErrors) && blockErrors?.root && (
-         <FormMessage>{blockErrors.root.message}</FormMessage>
+      {typeof imagesError === 'object' && imagesError?.root && (
+         <FormMessage>{imagesError.root.message}</FormMessage>
        )}
       {fields.length < 5 && (
         <Button
@@ -545,7 +559,8 @@ function ResourcesFieldArray({ blockIndex }: { blockIndex: number }) {
     name: `blocks.${blockIndex}.resources`,
   });
   
-  const blockErrors = errors.blocks?.[blockIndex]?.resources;
+  const blockError = errors.blocks?.[blockIndex];
+  const resourcesError = blockError && typeof blockError === 'object' && 'resources' in blockError ? (blockError as any).resources : undefined;
 
   return (
     <div className="space-y-4 pl-4 border-l-2">
@@ -567,8 +582,8 @@ function ResourcesFieldArray({ blockIndex }: { blockIndex: number }) {
             </div>
         </div>
       ))}
-       {typeof blockErrors === 'object' && !('message' in blockErrors) && blockErrors?.root && (
-         <FormMessage>{blockErrors.root.message}</FormMessage>
+       {typeof resourcesError === 'object' && resourcesError?.root && (
+         <FormMessage>{resourcesError.root.message}</FormMessage>
        )}
       <Button type="button" variant="outline" size="sm" onClick={() => append({ id: crypto.randomUUID(), title: '', description: '', link: '' })}>
         <PlusCircle className="mr-2 h-4 w-4" /> Añadir Recurso
@@ -585,6 +600,7 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
+        assertDb(db);
         const coursesCol = collection(db, 'courses');
         const q = query(coursesCol, where('estado', '==', 'aprobado'));
         const querySnapshot = await getDocs(q);
@@ -607,7 +623,8 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
       return <p className="text-sm text-muted-foreground">No hay cursos aprobados disponibles para seleccionar.</p>
   }
 
-  const blockErrors = errors.blocks?.[blockIndex]?.courseIds;
+  const blockError = errors.blocks?.[blockIndex];
+  const courseIdsError = blockError && typeof blockError === 'object' && 'courseIds' in blockError ? (blockError as any).courseIds : undefined;
 
   return (
     <FormField
@@ -658,7 +675,7 @@ function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
             ))}
             </div>
           </ScrollArea>
-           {blockErrors && <FormMessage>{blockErrors.message}</FormMessage>}
+           {courseIdsError && <FormMessage>{courseIdsError.message}</FormMessage>}
         </FormItem>
       )}
     />

@@ -45,6 +45,11 @@ export default function SignupPage() {
   const onSubmit: SubmitHandler<SignupFormValues> = async (data) => {
     setIsLoading(true);
     setAuthError(null);
+    if (!auth) {
+      setIsLoading(false);
+      setAuthError('No se pudo inicializar la autenticación.');
+      return;
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const firebaseUser = userCredential.user;
@@ -59,6 +64,12 @@ export default function SignupPage() {
         displayName: data.displayName,
         rol: 'alumno', // Rol por defecto
       };
+
+      if (!db) {
+        setIsLoading(false);
+        setAuthError('No se pudo inicializar la base de datos.');
+        return;
+      }
       await setDoc(doc(db, 'users', firebaseUser.uid), newUserProfile);
 
       toast({
@@ -83,6 +94,11 @@ export default function SignupPage() {
     setIsLoading(true);
     setAuthError(null);
     const provider = new GoogleAuthProvider();
+    if (!auth) {
+      setIsLoading(false);
+      setAuthError('No se pudo inicializar la autenticación.');
+      return;
+    }
     try {
       const result = await signInWithPopup(auth, provider);
       const firebaseUser = result.user;

@@ -163,7 +163,7 @@ export default function SubirCursoPage() {
             expire,
             token,
           });
-          finalImageUrl = uploadResponse.url;
+          finalImageUrl = uploadResponse.url ?? DEFAULT_IMAGE_URL;
         } catch (uploadError: any) {
           console.error("Error subiendo imagen a ImageKit: ", uploadError);
           let errorMessage = "Error al subir la imagen a ImageKit.";
