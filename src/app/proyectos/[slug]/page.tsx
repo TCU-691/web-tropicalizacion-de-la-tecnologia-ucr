@@ -24,23 +24,39 @@ interface ProjectPageParams {
 }
 
 export async function generateStaticParams() {
-  if (!db) return [];
+  console.log('[DEBUG] generateStaticParams - Iniciando generación de parámetros estáticos');
+  if (!db) {
+    console.error('[ERROR] generateStaticParams - Firestore no está inicializado');
+    return [];
+  }
+  
   const projectsCol = collection(db, 'projects');
+  console.log('[DEBUG] generateStaticParams - Colección de proyectos obtenida');
+  
   try {
     const querySnapshot = await getDocs(projectsCol);
-    return querySnapshot.docs.map(docSnap => ({
+    console.log(`[INFO] generateStaticParams - Proyectos encontrados: ${querySnapshot.docs.length}`);
+    
+    const params = querySnapshot.docs.map(docSnap => ({
       slug: docSnap.data().slug,
     }));
+    
+    console.log(`[DEBUG] generateStaticParams - Parámetros generados: ${JSON.stringify(params)}`);
+    return params;
   } catch (error) {
-    console.error("Error generating static params for projects:", error);
+    console.error("[ERROR] generateStaticParams - Error generando parámetros:", error);
     return [];
   }
 }
 
 export async function generateMetadata({ params }: ProjectPageParams): Promise<Metadata> {
+  console.log(`[DEBUG] generateMetadata - Generando metadata para slug: ${(await params).slug}`);
+  
   const { project } = await getProjectData((await params).slug);
+  console.log(`[INFO] generateMetadata - Proyecto encontrado: ${project?.name || 'no encontrado'}`);
 
   if (!project) {
+    console.warn(`[WARN] generateMetadata - No se encontró proyecto para slug: ${(await params).slug}`);
     return {
       title: 'Proyecto no encontrado | TCU TC-691',
       description: 'El proyecto solicitado no existe o ha sido removido.',
@@ -80,50 +96,113 @@ export async function generateMetadata({ params }: ProjectPageParams): Promise<M
 }
 
 async function getProjectData(slug: string) {
-    if (!db) return { project: null, subProjects: [], parentProject: null };
-    
-    const projectsCol = collection(db, 'projects');
-    const q = query(projectsCol, where('slug', '==', slug), limit(1));
-    const docSnap = (await getDocs(q)).docs[0];
-
-    if (!docSnap || !docSnap.exists()) {
+    console.log(`[DEBUG] getProjectData - Iniciando búsqueda para slug: ${slug}`);
+    if (!db) {
+        console.error('[ERROR] getProjectData - Firestore no está inicializado');
         return { project: null, subProjects: [], parentProject: null };
     }
+    
+    try {
+        const projectsCol = collection(db, 'projects');
+        console.log('[DEBUG] getProjectData - Colección de proyectos obtenida');
+        
+        const q = query(projectsCol, where('slug', '==', slug), limit(1));
+        console.log(`[DEBUG] getProjectData - Query creada para slug: ${slug}`);
+        
+        const querySnapshot = await getDocs(q);
+        console.log(`[DEBUG] getProjectData - Query ejecutada, docs encontrados: ${querySnapshot.docs.length}`);
+        
+        const docSnap = querySnapshot.docs[0];
 
-    const project = { id: docSnap.id, ...docSnap.data() } as FirestoreProject;
-
-    let subProjects: FirestoreProject[] = [];
-    let parentProject: FirestoreProject | null = null;
-
-    if (!project.parentId) {
-        const subProjectsQuery = query(collection(db, 'projects'), where('parentId', '==', project.id));
-        const subProjectsSnap = await getDocs(subProjectsQuery);
-        subProjects = subProjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject));
-    } else {
-        const parentDocSnap = await getDoc(doc(db, 'projects', project.parentId));
-        if (parentDocSnap.exists()) {
-            parentProject = { id: parentDocSnap.id, ...parentDocSnap.data() } as FirestoreProject;
+        if (!docSnap || !docSnap.exists()) {
+            console.error(`[ERROR] getProjectData - No se encontró proyecto con slug: ${slug}`);
+            return { project: null, subProjects: [], parentProject: null };
         }
-    }
 
-    return { project, subProjects, parentProject };
+        const project = { id: docSnap.id, ...docSnap.data() } as FirestoreProject;
+        console.log(`[INFO] getProjectData - Proyecto encontrado: ${project.name} (ID: ${project.id})`);
+
+        let subProjects: FirestoreProject[] = [];
+        let parentProject: FirestoreProject | null = null;
+
+        if (!project.parentId) {
+            console.log(`[INFO] getProjectData - Proyecto es padre, buscando subproyectos para ID: ${project.id}`);
+            try {
+                const subProjectsQuery = query(collection(db, 'projects'), where('parentId', '==', project.id));
+                console.log(`[DEBUG] getProjectData - Query de subproyectos creada para parentId: ${project.id}`);
+                
+                const subProjectsSnap = await getDocs(subProjectsQuery);
+                console.log(`[INFO] getProjectData - Subproyectos encontrados: ${subProjectsSnap.docs.length}`);
+                
+                subProjects = subProjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject));
+                console.log(`[DEBUG] getProjectData - Datos de subproyectos procesados: ${JSON.stringify(subProjects.map(p => ({ id: p.id, name: p.name })))}`);
+            } catch (error) {
+                console.error(`[ERROR] getProjectData - Error al buscar subproyectos:`, error);
+                if ((error as any).code === 'failed-precondition') {
+                    console.error(`[ERROR] getProjectData - Error de índice compuesto. Verifica que existe un índice para la consulta where('parentId', '==', [valor])`);
+                }
+            }
+        } else {
+            console.log(`[INFO] getProjectData - Proyecto es subproyecto, buscando proyecto padre con ID: ${project.parentId}`);
+            try {
+                const parentDocSnap = await getDoc(doc(db, 'projects', project.parentId));
+                if (parentDocSnap.exists()) {
+                    parentProject = { id: parentDocSnap.id, ...parentDocSnap.data() } as FirestoreProject;
+                    console.log(`[INFO] getProjectData - Proyecto padre encontrado: ${parentProject.name}`);
+                } else {
+                    console.warn(`[WARN] getProjectData - Proyecto padre con ID ${project.parentId} no encontrado`);
+                }
+            } catch (error) {
+                console.error(`[ERROR] getProjectData - Error al buscar proyecto padre:`, error);
+            }
+        }
+
+        console.log(`[DEBUG] getProjectData - Finalizando con éxito para ${project.name}`);
+        return { project, subProjects, parentProject };
+    } catch (error) {
+        console.error(`[ERROR] getProjectData - Error general:`, error);
+        return { project: null, subProjects: [], parentProject: null };
+    }
 }
 
 
 async function getRelatedCourses(courseIds: string[]): Promise<FirestoreCourse[]> {
-    if (!db || courseIds.length === 0) return [];
+    console.log(`[DEBUG] getRelatedCourses - Buscando cursos relacionados, IDs: ${JSON.stringify(courseIds)}`);
+    
+    if (!db) {
+        console.error('[ERROR] getRelatedCourses - Firestore no está inicializado');
+        return [];
+    }
+    
+    if (courseIds.length === 0) {
+        console.log('[INFO] getRelatedCourses - No hay IDs de cursos para buscar');
+        return [];
+    }
+    
     try {
         const coursesRef = collection(db, "courses");
+        console.log('[DEBUG] getRelatedCourses - Colección de cursos obtenida');
+        
         const q = query(coursesRef, where('__name__', 'in', courseIds), where('estado', '==', 'aprobado'));
+        console.log(`[DEBUG] getRelatedCourses - Query creada para ${courseIds.length} cursos`);
+        
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(docSnap => ({
+        console.log(`[INFO] getRelatedCourses - Cursos encontrados: ${querySnapshot.docs.length} de ${courseIds.length} solicitados`);
+        
+        const courses = querySnapshot.docs.map(docSnap => ({
             id: docSnap.id,
             ...docSnap.data(),
             fechaCreacion: (docSnap.data().fechaCreacion as Timestamp).toDate().toISOString(),
             fechaActualizacion: docSnap.data().fechaActualizacion ? (docSnap.data().fechaActualizacion as Timestamp).toDate().toISOString() : undefined,
         } as FirestoreCourse));
+        
+        console.log(`[DEBUG] getRelatedCourses - Datos de cursos procesados: ${JSON.stringify(courses.map(c => ({ id: c.id, titulo: c.titulo })))}`);
+        return courses;
     } catch (error) {
-        console.error("Error fetching related courses:", error);
+        console.error("[ERROR] getRelatedCourses - Error al buscar cursos relacionados:", error);
+        if ((error as any).code === 'failed-precondition') {
+            console.error(`[ERROR] getRelatedCourses - Error de índice compuesto. Verifica que existe un índice para la consulta con múltiples condiciones where`);
+        }
         return [];
     }
 }
@@ -171,9 +250,13 @@ function renderBlock(block: ProjectBlock, index: number) {
 
 
 export default async function ProjectPage({ params }: ProjectPageParams) {
+  console.log(`[DEBUG] ProjectPage - Iniciando renderizado para slug: ${(await params).slug}`);
+  
   const { project, subProjects, parentProject } = await getProjectData((await params).slug);
+  console.log(`[INFO] ProjectPage - Datos obtenidos: proyecto ${project?.name || 'no encontrado'}, ${subProjects.length} subproyectos, proyecto padre ${parentProject?.name || 'ninguno'}`);
 
   if (!project) {
+    console.error(`[ERROR] ProjectPage - Proyecto no encontrado para slug: ${(await params).slug}`);
     notFound();
   }
 
@@ -217,21 +300,30 @@ export default async function ProjectPage({ params }: ProjectPageParams) {
             </Card>
         </section>
         
-        {subProjects.length > 0 && (
-             <div key="subprojects-section">
-                <Separator className="my-8" />
-                <section className="space-y-4">
-                    <h3 className="font-headline text-2xl font-semibold text-primary flex items-center">
-                        <GitMerge className="mr-3 h-6 w-6"/>Subproyectos Relacionados
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {subProjects.map(sub => (
-                            <ProjectCard key={sub.id} project={sub} />
-                        ))}
+        {(() => {
+            if (subProjects.length > 0) {
+                console.log(`[INFO] ProjectPage - Renderizando ${subProjects.length} subproyectos`);
+                return (
+                    <div key="subprojects-section">
+                        <Separator className="my-8" />
+                        <section className="space-y-4">
+                            <h3 className="font-headline text-2xl font-semibold text-primary flex items-center">
+                                <GitMerge className="mr-3 h-6 w-6"/>Subproyectos Relacionados
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {subProjects.map(sub => {
+                                    console.log(`[DEBUG] ProjectPage - Renderizando subproyecto: ${sub.name} (ID: ${sub.id})`);
+                                    return <ProjectCard key={sub.id} project={sub} />;
+                                })}
+                            </div>
+                        </section>
                     </div>
-                </section>
-            </div>
-        )}
+                );
+            } else {
+                console.log(`[INFO] ProjectPage - No hay subproyectos para mostrar para el proyecto ${project.name}`);
+                return null;
+            }
+        })()}
 
         {project.blocks && project.blocks.length > 0 && (
             <div className="space-y-8">
