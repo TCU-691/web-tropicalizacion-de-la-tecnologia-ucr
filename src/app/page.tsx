@@ -321,8 +321,8 @@ export default async function HomePage() {
             </p>
             <div className="flex items-center justify-center gap-2 text-lg">
                 <Mail className="h-5 w-5 text-muted-foreground" />
-                <a href="mailto:contacto.tcu.tropical@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
-                    contacto.tcu.tropical@ucr.ac.cr
+                <a href="mailto:tropicalizacion@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
+                    tropicalizacion@ucr.ac.cr
                 </a>
             </div>
          </div>
