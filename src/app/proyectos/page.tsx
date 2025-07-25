@@ -2,6 +2,8 @@
 import type { Metadata } from 'next';
 import { ProyectosClient } from './ProyectosClient';
 
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'Proyectos | TCU TC-691',
   description: 'Explora la diversidad de proyectos desarrollados en el TCU TC-691: innovación, tecnología y compromiso social desde el trópico.',

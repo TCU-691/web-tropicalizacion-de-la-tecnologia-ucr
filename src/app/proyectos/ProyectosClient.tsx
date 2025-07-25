@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ListFilter, Search, Loader2 } from 'lucide-react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { FirestoreProject } from '@/types/project';
+
+export const revalidate = 0;
 
 export function ProyectosClient() {
   const [allProjects, setAllProjects] = useState<FirestoreProject[]>([]);
@@ -21,24 +21,22 @@ export function ProyectosClient() {
 
   useEffect(() => {
     async function fetchProjects() {
-      if (!db) {
-        console.error("Firestore (db) is not initialized.");
-        setIsLoading(false);
-        return;
-      }
       try {
-        const projectsCollection = collection(db, 'projects');
-        const querySnapshot = await getDocs(query(projectsCollection, orderBy('createdAt', 'desc')));
+        const response = await fetch('/api/projects', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error('Failed to fetch projects');
+        }
+        const projectsData: FirestoreProject[] = await response.json();
         
         // Filter in client-side to include projects with parentId=null or missing parentId
-        const projectsData = querySnapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject))
-          .filter(project => project.parentId === null || project.parentId === undefined);
+        const filteredData = projectsData.filter(
+          project => project.parentId === null || project.parentId === undefined
+        );
 
-        setAllProjects(projectsData);
-        setFilteredProjects(projectsData);
+        setAllProjects(filteredData);
+        setFilteredProjects(filteredData);
         
-        const uniqueCategories = Array.from(new Set(projectsData.map(p => p.category).filter(Boolean)));
+        const uniqueCategories = Array.from(new Set(filteredData.map(p => p.category).filter(Boolean)));
         setCategories(uniqueCategories);
 
       } catch (error) {
@@ -130,4 +128,4 @@ export function ProyectosClient() {
       </section>
     </div>
   );
-} 
+}

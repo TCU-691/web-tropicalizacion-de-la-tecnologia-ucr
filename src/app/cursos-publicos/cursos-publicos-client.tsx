@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { ListFilter, Search, BookOpen, Loader2 } from 'lucide-react';
 
+export const revalidate = 0;
+
 interface CursosPublicosClientPageProps {
   initialCourses: FirestoreCourse[];
 }

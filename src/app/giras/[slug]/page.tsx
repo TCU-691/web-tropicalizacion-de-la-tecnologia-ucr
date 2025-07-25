@@ -10,6 +10,8 @@ import { db } from '@/lib/firebase';
 import type { FirestoreTour } from '@/types/tour';
 import type { Metadata } from 'next';
 
+export const revalidate = 0;
+
 interface GiraPageParams {
     params: {
         slug: string;

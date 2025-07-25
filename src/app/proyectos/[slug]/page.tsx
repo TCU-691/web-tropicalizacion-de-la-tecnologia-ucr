@@ -17,6 +17,8 @@ import type { FirestoreCourse } from '@/types/course';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
+export const revalidate = 0;
+
 interface ProjectPageParams {
   params: {
     slug: string;

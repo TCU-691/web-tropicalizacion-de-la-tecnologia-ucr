@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { FirestoreCourse } from '@/types/course';
 import { CursosPublicosClientPage as CursosClient } from './cursos-publicos-client';
 
+export const revalidate = 0;
+
 interface CursosPublicosClientPageProps {
   initialCourses: FirestoreCourse[];
 }

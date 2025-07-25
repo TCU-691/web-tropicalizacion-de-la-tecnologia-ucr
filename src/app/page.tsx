@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -13,27 +12,8 @@ import type { FirestoreArticle } from '@/types/article';
 import { Badge } from '@/components/ui/badge';
 import { Image as ImageKitImage } from '@imagekit/next';
 import { ArticleCard } from '@/components/article-card';
-import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'TCU TC-691 | Tropicalización de la Tecnología | UCR',
-  description: 'Innovación educativa desde el trópico: visibilizando proyectos, compartiendo conocimiento. Descubre proyectos, cursos, giras y artículos del TCU TC-691 de la UCR.',
-  keywords: [
-    'TCU', 'TC-691', 'Tropicalización de la Tecnología', 'UCR', 'Universidad de Costa Rica',
-    'proyectos', 'cursos públicos', 'giras', 'artículos', 'educación', 'innovación', 'tecnología',
-    'impacto social', 'Costa Rica', 'trópico', 'comunidad', 'aprendizaje', 'sostenibilidad'
-  ],
-  openGraph: {
-    title: 'TCU TC-691 | Tropicalización de la Tecnología',
-    description: 'Innovación educativa desde el trópico: visibilizando proyectos, compartiendo conocimiento. Descubre proyectos, cursos, giras y artículos del TCU TC-691 de la UCR.',
-    siteName: 'TCU TC-691',
-    locale: 'es_CR',
-    type: 'website',
-  },
-  alternates: {
-    canonical: '/',
-  },
-};
+export const revalidate = 0;
 
 async function getFeaturedProjects(): Promise<FirestoreProject[]> {
   if (!db) return [];
@@ -321,8 +301,8 @@ export default async function HomePage() {
             </p>
             <div className="flex items-center justify-center gap-2 text-lg">
                 <Mail className="h-5 w-5 text-muted-foreground" />
-                <a href="mailto:tropicalizacion@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
-                    tropicalizacion@ucr.ac.cr
+                <a href="mailto:contacto.tcu.tropical@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
+                    contacto.tcu.tropical@ucr.ac.cr
                 </a>
             </div>
          </div>

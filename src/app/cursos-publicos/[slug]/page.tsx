@@ -13,6 +13,8 @@ import { Image as ImageKitImage } from '@imagekit/next'; // Using ImageKit's Ima
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 
+export const revalidate = 0;
+
 interface CoursePageParams {
   params: {
     slug: string;

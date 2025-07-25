@@ -5,6 +5,8 @@ import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore
 import { db } from '@/lib/firebase';
 import type { FirestoreCourse } from '@/types/course';
 
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'Cursos Públicos | TCU TC-691',
   description: 'Accede a cursos y materiales educativos abiertos a todo público, desarrollados por el TCU TC-691 para la comunidad.',
