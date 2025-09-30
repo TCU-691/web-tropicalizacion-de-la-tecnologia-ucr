@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -209,8 +210,8 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 mr-6">
-          <TentTree className="h-7 w-7 text-primary" />
-          <span className="font-headline text-xl font-semibold hidden sm:inline-block">TCU Tropical</span>
+          <Image src="/logo.png" alt="TCU-691 Logo" width={40} height={40} />
+          <span className="font-headline text-xl font-semibold hidden sm:inline-block">TCU-691</span>
         </Link>
         
         <nav className="hidden md:flex gap-6 items-center">
@@ -240,8 +241,8 @@ export function Navbar() {
                   <SheetTitle>
                     <SheetClose asChild>
                       <Link href="/" className="flex items-center gap-2">
-                        <TentTree className="h-7 w-7 text-primary" />
-                        <span className="font-headline text-xl font-semibold">TCU Tropical</span>
+                        <Image src="/logo.png" alt="TCU-691 Logo" width={28} height={28} />
+                        <span className="font-headline text-xl font-semibold">TCU-691</span>
                       </Link>
                     </SheetClose>
                   </SheetTitle>

@@ -12,6 +12,7 @@ import type { FirestoreArticle } from '@/types/article';
 import { Badge } from '@/components/ui/badge';
 import { Image as ImageKitImage } from '@imagekit/next';
 import { ArticleCard } from '@/components/article-card';
+import { ContactSection } from '@/components/contact-section';
 
 export const revalidate = 0;
 
@@ -293,20 +294,7 @@ export default async function HomePage() {
       </section>
 
       {/* Contact Section */}
-       <section className="container mx-auto px-4 text-center">
-         <div className="bg-card p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
-            <h2 className="font-headline text-3xl font-semibold text-primary mb-4">Contáctanos</h2>
-            <p className="text-muted-foreground mb-6">
-                ¿Tienes preguntas o quieres colaborar? Nos encantaría saber de ti.
-            </p>
-            <div className="flex items-center justify-center gap-2 text-lg">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <a href="mailto:tropicalizacion@ucr.ac.cr" className="text-foreground hover:text-primary hover:underline">
-                    tropicalizacion@ucr.ac.cr
-                </a>
-            </div>
-         </div>
-       </section>
+      <ContactSection />
     </div>
   );
 }
