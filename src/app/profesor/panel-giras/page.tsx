@@ -13,6 +13,7 @@ import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase
 import { db } from '@/lib/firebase';
 import type { FirestoreTour } from '@/types/tour';
 import { TourAdminCard } from '@/components/tour-admin-card';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 
 // --- Firestore null check helper ---
 function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
@@ -62,17 +63,21 @@ export default function PanelGirasPage() {
 
   const handleDeleteTour = async (tourId: string) => {
     try {
-      assertDb(db);
-      await deleteDoc(doc(db, 'tours', tourId));
-      toast({
-        title: "Gira Eliminada",
-        description: "La gira ha sido eliminada de la base de datos.",
-      });
+      const result = await deleteDocumentWithImages('tours', tourId);
+      
+      if (result.success) {
+        toast({
+          title: "Gira Eliminada",
+          description: `La gira y sus imágenes asociadas han sido eliminadas. Imágenes eliminadas: ${result.imageDeleteResult?.success || 0}`,
+        });
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error deleting tour: ", error);
       toast({
         title: "Error al eliminar",
-        description: "No se pudo eliminar la gira.",
+        description: "No se pudo eliminar la gira completamente.",
         variant: "destructive",
       });
     }

@@ -19,9 +19,8 @@ export function CourseCard({ course }: CourseCardProps) {
           <ImageKitImage
             src={course.imagenUrl || "https://placehold.co/600x400.png"}
             alt={`Portada del curso ${course.titulo}`}
-            layout="fill"
-            objectFit="cover"
-            className="transform group-hover:scale-105 transition-transform duration-300"
+            fill
+            className="object-cover transform group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="course cover"
           />
         </div>

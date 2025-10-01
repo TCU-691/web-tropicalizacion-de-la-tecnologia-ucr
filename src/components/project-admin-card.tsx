@@ -46,8 +46,8 @@ export function ProjectAdminCard({ project, onDelete, isSubProject = false }: Pr
           <Image
             src={project.coverImageUrl}
             alt={`Portada de ${project.name}`}
-            layout="fill"
-            objectFit="cover"
+            fill
+            className="object-cover"
             data-ai-hint="project cover"
           />
         </div>

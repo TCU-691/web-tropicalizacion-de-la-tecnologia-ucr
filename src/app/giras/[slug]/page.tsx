@@ -127,8 +127,8 @@ export default async function GiraPage({ params }: GiraPageParams) {
                         <Image
                             src={tour.imageUrl}
                             alt={`Imagen de ${tour.title}`}
-                            layout="fill"
-                            objectFit="cover"
+                            fill
+                            className="object-cover"
                             priority
                             data-ai-hint="tour cover"
                         />

@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import type { FirestoreArticle, ContentBlock } from '@/types/article';
 import type { UserProfile } from '@/types/user';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -145,15 +146,22 @@ export default function PanelArticulosPage() {
   };
 
   const handleDeleteArticle = async (articleId: string) => {
-    if (!db) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'articles', articleId));
-      toast({ title: 'Artículo Eliminado', description: 'El artículo ha sido eliminado permanentemente.' });
-      setIsModalOpen(false);
+      const result = await deleteDocumentWithImages('articles', articleId);
+      
+      if (result.success) {
+        toast({ 
+          title: 'Artículo Eliminado', 
+          description: `El artículo y sus imágenes asociadas han sido eliminados. Imágenes eliminadas: ${result.imageDeleteResult?.success || 0}` 
+        });
+        setIsModalOpen(false);
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error deleting article: ", error);
-      toast({ title: 'Error', description: 'No se pudo eliminar el artículo.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo eliminar el artículo completamente.', variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
