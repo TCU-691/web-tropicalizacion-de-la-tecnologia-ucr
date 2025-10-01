@@ -14,6 +14,7 @@ import { collection, query, orderBy, onSnapshot, deleteDoc, doc, where } from 'f
 import { db } from '@/lib/firebase';
 import type { FirestoreProject, HierarchicalProject } from '@/types/project';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 
 
 // --- Firestore null check helper ---
@@ -88,17 +89,21 @@ export default function PanelProyectosPage() {
 
   const handleDeleteProject = async (projectId: string) => {
     try {
-      assertDb(db);
-      await deleteDoc(doc(db, 'projects', projectId));
-      toast({
-        title: "Proyecto Eliminado",
-        description: "El proyecto ha sido eliminado de la base de datos.",
-      });
+      const result = await deleteDocumentWithImages('projects', projectId);
+      
+      if (result.success) {
+        toast({
+          title: "Proyecto Eliminado",
+          description: `El proyecto y sus imágenes asociadas han sido eliminados. Imágenes eliminadas: ${result.imageDeleteResult?.success || 0}`,
+        });
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error deleting project: ", error);
       toast({
         title: "Error al eliminar",
-        description: "No se pudo eliminar el proyecto.",
+        description: "No se pudo eliminar el proyecto completamente.",
         variant: "destructive",
       });
     }

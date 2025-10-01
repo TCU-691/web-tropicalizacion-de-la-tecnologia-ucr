@@ -169,8 +169,8 @@ export default async function ArticlePage({ params }: ArticlePageParams) {
               <Image
                 src={imageUrl}
                 alt={`Portada de ${article.title}`}
-                layout="fill"
-                objectFit="cover"
+                fill
+                className="object-cover"
                 priority
                 data-ai-hint="article cover"
               />

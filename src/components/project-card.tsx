@@ -18,8 +18,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
           <Image
             src={project.coverImageUrl}
             alt={`Imagen del proyecto ${project.name}`}
-            layout="fill"
-            objectFit="cover"
+            fill
+            className="object-cover"
             data-ai-hint="project cover"
           />
         </div>

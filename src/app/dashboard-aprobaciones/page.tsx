@@ -9,6 +9,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
 import type { FirestoreCourse } from '@/types/course';
 import type { UserProfile } from '@/types/user';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -166,15 +167,22 @@ export default function DashboardAprobacionesPage() {
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    assertDb(db);
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, 'courses', courseId));
-      toast({ title: 'Curso Eliminado', description: 'El curso ha sido eliminado permanentemente.' });
-      setIsModalOpen(false);
+      const result = await deleteDocumentWithImages('courses', courseId);
+      
+      if (result.success) {
+        toast({ 
+          title: 'Curso Eliminado', 
+          description: `El curso y sus imágenes asociadas han sido eliminados. Imágenes eliminadas: ${result.imageDeleteResult?.success || 0}` 
+        });
+        setIsModalOpen(false);
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error("Error deleting course: ", error);
-      toast({ title: 'Error', description: 'No se pudo eliminar el curso.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo eliminar el curso completamente.', variant: 'destructive' });
     } finally {
       setIsDeleting(false);
     }
@@ -315,7 +323,7 @@ export default function DashboardAprobacionesPage() {
             <div className="flex-grow overflow-y-auto space-y-6 pr-2 py-2 -mr-2">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                 <div className="md:col-span-1 relative aspect-video rounded-lg overflow-hidden shadow-md">
-                  <ImageKitImage src={selectedCourse.imagenUrl || "https://placehold.co/600x400.png"} alt={`Portada de ${selectedCourse.titulo}`} layout="fill" objectFit="cover" data-ai-hint="course cover" />
+                  <ImageKitImage src={selectedCourse.imagenUrl || "https://placehold.co/600x400.png"} alt={`Portada de ${selectedCourse.titulo}`} fill className="object-cover" data-ai-hint="course cover" />
                 </div>
                 <div className="md:col-span-2 space-y-2">
                   <p><strong className="font-medium">Categoría:</strong> <Badge variant="outline">{selectedCourse.categoria}</Badge></p>

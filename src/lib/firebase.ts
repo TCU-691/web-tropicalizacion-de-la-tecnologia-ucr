@@ -14,15 +14,7 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Added this line
 };
 
-// Log the config to help debug environment variable loading
-console.log("Firebase Config Used (excluding API key for security):", {
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket,
-  messagingSenderId: firebaseConfig.messagingSenderId,
-  appId: firebaseConfig.appId,
-  measurementId: firebaseConfig.measurementId,
-});
+// Firebase config is ready for initialization
 
 let app: FirebaseApp;
 if (!getApps().length) {

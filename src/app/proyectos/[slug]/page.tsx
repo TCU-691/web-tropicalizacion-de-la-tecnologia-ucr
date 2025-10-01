@@ -293,7 +293,7 @@ export default async function ProjectPage({ params }: ProjectPageParams) {
         <section className="mb-12">
             <Card className="overflow-hidden shadow-xl border-none">
                 <div className="aspect-video w-full relative">
-                    <Image src={project.coverImageUrl} alt={`Imagen del proyecto ${project.name}`} layout="fill" objectFit="cover" priority data-ai-hint="project cover" />
+                    <Image src={project.coverImageUrl} alt={`Imagen del proyecto ${project.name}`} fill className="object-cover" priority data-ai-hint="project cover" />
                 </div>
                 <CardContent className="p-6 md:p-8 bg-card">
                     <h2 className="font-headline text-2xl md:text-3xl font-semibold text-primary mb-4 flex items-center"><Layers className="mr-3 h-6 w-6"/>Detalles del Proyecto</h2>

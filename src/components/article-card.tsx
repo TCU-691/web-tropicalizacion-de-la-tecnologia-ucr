@@ -23,9 +23,8 @@ export function ArticleCard({ article }: ArticleCardProps) {
           <ImageKitImage
             src={imageUrl}
             alt={`Imagen para el artículo ${article.title}`}
-            layout="fill"
-            objectFit="cover"
-            className="transform group-hover:scale-105 transition-transform duration-300"
+            fill
+            className="object-cover transform group-hover:scale-105 transition-transform duration-300"
             data-ai-hint="article cover"
           />
         </Link>

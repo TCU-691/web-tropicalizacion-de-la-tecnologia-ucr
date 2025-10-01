@@ -45,8 +45,8 @@ export function TourAdminCard({ tour, onDelete }: TourAdminCardProps) {
           <Image
             src={tour.imageUrl}
             alt={`Portada de ${tour.title}`}
-            layout="fill"
-            objectFit="cover"
+            fill
+            className="object-cover"
             data-ai-hint="tour cover"
           />
         </div>
