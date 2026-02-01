@@ -1,5 +1,3 @@
-# Firebase Studio
+# Tropicalización de la Tecnología - UCR
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+Este repositorio contiene una aplicación hecha con Firebase para el frontend y python para el backend del simulador
