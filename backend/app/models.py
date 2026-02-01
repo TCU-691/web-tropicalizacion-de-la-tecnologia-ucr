@@ -8,6 +8,12 @@ class PowerProfileData(BaseModel):
     power: List[float]
 
 
+class MultipleProfilesData(BaseModel):
+    """Multiple power profiles from multiple CSV files."""
+    time: List[str]
+    profiles: Dict[str, List[float]] = Field(..., description="Dictionary mapping profile name to power data")
+
+
 class GenerationProfiles(BaseModel):
     """Optional generation profiles as direct power (kW) time series aligned with demand."""
     pv: Optional[List[float]] = None
