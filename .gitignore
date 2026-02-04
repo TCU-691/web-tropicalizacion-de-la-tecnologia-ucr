@@ -47,3 +47,5 @@ firestore-debug.log
 venv/
 
 __pycache__
+
+server.log
