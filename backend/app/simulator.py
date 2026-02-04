@@ -37,6 +37,7 @@ def _sum_other_gen(other: Optional[Dict[str, List[float]]], n: int) -> List[floa
 
 # Simulate microgrid operation based on input profiles and configuration. 
 # Should return detailed time series and summary statistics
+# TODO: Modularize further for readability and maintainability.
 def simulate_microgrid(req: SimulationRequest) -> SimulationResult:
     n = len(req.time)
     if len(req.demand_kw) != n:

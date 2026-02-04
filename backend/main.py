@@ -15,7 +15,10 @@ app.include_router(router, prefix="/api/v1")
 # Configure CORS
 origins = [
     "http://localhost:9002",  # Next.js development server
+    "http://localhost:3000",  # Alternative Next.js port
     "http://localhost",
+    "http://127.0.0.1:9002",
+    "http://127.0.0.1:3000",
     # Add your production domain here
 ]
 
@@ -25,6 +28,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 @app.get("/")
