@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useMemo, useRef, useState } from "react";
 import ReactFlow, {
   addEdge,
@@ -12,6 +11,7 @@ import ReactFlow, {
   type OnConnect,
 } from "reactflow";
 import "reactflow/dist/style.css";
+import ElectricNode from "../components/ElectricNode";
 
 type CsvObject = {
   id: string;
@@ -28,15 +28,19 @@ type NodeData = {
   // para poder borrar nodos asociados a un CSV
   sourceCsvId?: string;
 };
+const nodeTypes = {
+  electric: ElectricNode,
+};
 
-const initialNodes: Node<NodeData>[] = [
+const initialNodes = [
   {
     id: "1",
+    type: "electric",
     position: { x: 100, y: 100 },
     data: { label: "Generador" },
-    type: "default",
   },
 ];
+
 
 function quickCsvStats(text: string) {
   const lines = text
@@ -86,14 +90,14 @@ export default function GridEditor() {
 
   const addNodeFromObject = (obj: CsvObject) => {
     const id = crypto.randomUUID();
-
+    
     setNodes((prev) => [
       ...prev,
       {
         id,
         position: { x: 220 + prev.length * 30, y: 160 + prev.length * 20 },
         data: { label: obj.filename, sourceCsvId: obj.id },
-        type: "default",
+        type: "electric",
       },
     ]);
   };
@@ -121,10 +125,12 @@ export default function GridEditor() {
     setEdges((prev) => prev.filter((e) => !selectedNodeIds.has(e.source) && !selectedNodeIds.has(e.target)));
   };
 
-  const onConnect: OnConnect = (params) => {
-    if (params.source === params.target) return;
-    setEdges((eds) => addEdge(params, eds));
-  };
+const onConnect: OnConnect = (params) => {
+  if (params.source === params.target) return;
+
+  setEdges((eds) => addEdge(params, eds));
+};
+
 
   return (
     <div
@@ -142,6 +148,7 @@ export default function GridEditor() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -288,7 +295,6 @@ export default function GridEditor() {
                       lineHeight: 1,
                     }}
                   >
-                    ×
                   </button>
                 </div>
               ))
