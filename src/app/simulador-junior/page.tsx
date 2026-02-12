@@ -6,12 +6,19 @@ import ReactFlow, {
   Controls,
   useEdgesState,
   useNodesState,
-  type Node,
   type Edge,
   type OnConnect,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import ElectricNode from "../components/ElectricNode";
+
+import GeneratorNode from "../components/GeneratorNode";
+import ChargeNode from "../components/ChargeNode";
+import BatteryNode from "../components/BatteryNode";
+import SwitchNode from "../components/SwitchNode";
+import BusNode from "../components/BusNode";
+
+type PowerNodeType = "generator" | "battery" | "charge";
+type CustomNodeType = PowerNodeType | "switch" | "bus";
 
 type CsvObject = {
   id: string;
@@ -21,26 +28,33 @@ type CsvObject = {
   cols: number;
   uploadedAt: number;
   raw: string;
+  nodeType: PowerNodeType;
 };
 
 type NodeData = {
   label: string;
-  // para poder borrar nodos asociados a un CSV
   sourceCsvId?: string;
+  isClosed?: boolean; // switch
+  inputs?: number;    // bus
+  outputs?: number;   // bus
 };
+
 const nodeTypes = {
-  electric: ElectricNode,
+  generator: GeneratorNode,
+  charge: ChargeNode,
+  battery: BatteryNode,
+  switch: SwitchNode,
+  bus: BusNode,
 };
 
 const initialNodes = [
   {
     id: "1",
-    type: "electric",
-    position: { x: 100, y: 100 },
+    type: "generator" as const,
+    position: { x: 100, y: 120 },
     data: { label: "Generador" },
   },
 ];
-
 
 function quickCsvStats(text: string) {
   const lines = text
@@ -55,11 +69,26 @@ function quickCsvStats(text: string) {
   return { rows, cols };
 }
 
+function labelFromType(t: PowerNodeType) {
+  if (t === "generator") return "Generador";
+  if (t === "battery") return "Batería";
+  return "Carga";
+}
+
 export default function GridEditor() {
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [objects, setObjects] = useState<CsvObject[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // MENÚ CENTRADO CSV
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [pendingNodeType, setPendingNodeType] = useState<PowerNodeType>("charge");
+
+  // MENÚ CENTRADO BUS (config)
+  const [isBusMenuOpen, setIsBusMenuOpen] = useState(false);
+  const [pendingBusInputs, setPendingBusInputs] = useState<number>(4);
+  const [pendingBusOutputs, setPendingBusOutputs] = useState<number>(1);
 
   const menuItems = useMemo(() => objects, [objects]);
 
@@ -83,6 +112,7 @@ export default function GridEditor() {
       cols,
       uploadedAt: Date.now(),
       raw,
+      nodeType: pendingNodeType,
     };
 
     setObjects((prev) => [...prev, newObj]);
@@ -90,23 +120,22 @@ export default function GridEditor() {
 
   const addNodeFromObject = (obj: CsvObject) => {
     const id = crypto.randomUUID();
-    
+
     setNodes((prev) => [
       ...prev,
       {
         id,
         position: { x: 220 + prev.length * 30, y: 160 + prev.length * 20 },
         data: { label: obj.filename, sourceCsvId: obj.id },
-        type: "electric",
+        type: obj.nodeType as CustomNodeType,
       },
     ]);
   };
 
   const removeObject = (csvId: string) => {
     setObjects((prev) => prev.filter((o) => o.id !== csvId));
-
-    // opcional (lo dejo ON): borrar nodos que fueron creados desde ese CSV
     setNodes((prev) => prev.filter((n) => n.data?.sourceCsvId !== csvId));
+
     setEdges((prevEdges) => {
       const remainingNodeIds = new Set(
         nodes.filter((n) => n.data?.sourceCsvId !== csvId).map((n) => n.id)
@@ -118,33 +147,102 @@ export default function GridEditor() {
   };
 
   const deleteSelected = () => {
-    const selectedNodeIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
-    if (selectedNodeIds.size === 0) return;
+    const selectedIds = new Set(nodes.filter((n) => n.selected).map((n) => n.id));
+    if (!selectedIds.size) return;
 
-    setNodes((prev) => prev.filter((n) => !selectedNodeIds.has(n.id)));
-    setEdges((prev) => prev.filter((e) => !selectedNodeIds.has(e.source) && !selectedNodeIds.has(e.target)));
+    setNodes((prev) => prev.filter((n) => !selectedIds.has(n.id)));
+    setEdges((prev) =>
+      prev.filter((e) => !selectedIds.has(e.source) && !selectedIds.has(e.target))
+    );
   };
 
-const onConnect: OnConnect = (params) => {
+  const onConnect: OnConnect = (params) => {
   if (params.source === params.target) return;
+
+  const sourceNode = nodes.find((n) => n.id === params.source);
+  const targetNode = nodes.find((n) => n.id === params.target);
+
+  const sourceType = sourceNode?.type as CustomNodeType | undefined;
+  const targetType = targetNode?.type as CustomNodeType | undefined;
+
+  // no salir de la carga
+  if (sourceType === "charge") return;
+
+  const isPowerSource = sourceType === "generator" || sourceType === "battery";
+  const isSwitch = sourceType === "switch";
+  const isBus = sourceType === "bus";
+
+  const allow =
+    // fuentes (gen/bat) -> bus/switch/charge/battery (si querés cargar la batería)
+    (isPowerSource &&
+      (targetType === "bus" ||
+        targetType === "switch" ||
+        targetType === "charge" ||
+        targetType === "battery")) ||
+
+    // switch -> bus/charge/battery/switch
+    (isSwitch &&
+      (targetType === "bus" ||
+        targetType === "charge" ||
+        targetType === "battery" ||
+        targetType === "switch")) ||
+
+    // bus -> charge/switch/battery  
+    (isBus &&
+      (targetType === "charge" ||
+        targetType === "switch" ||
+        targetType === "battery"));
+
+  if (!allow) return;
 
   setEdges((eds) => addEdge(params, eds));
 };
 
+  const chooseTypeAndPickFile = (t: PowerNodeType) => {
+    setPendingNodeType(t);
+    setIsAddMenuOpen(false);
+    openFilePicker();
+  };
+
+  const addSwitchNode = () => {
+    const id = crypto.randomUUID();
+    setNodes((prev) => [
+      ...prev,
+      {
+        id,
+        type: "switch",
+        position: { x: 260 + prev.length * 20, y: 110 + prev.length * 16 },
+        data: { label: "Switch", isClosed: true },
+      },
+    ]);
+  };
+
+  // Abrir menú de bus
+  const openBusConfigMenu = () => setIsBusMenuOpen(true);
+
+  // Crear bus con config elegida
+  const createBusWithConfig = () => {
+    const id = crypto.randomUUID();
+    setNodes((prev) => [
+      ...prev,
+      {
+        id,
+        type: "bus",
+        position: { x: 420 + prev.length * 8, y: 80 + prev.length * 8 },
+        data: { label: "Bus", inputs: pendingBusInputs, outputs: pendingBusOutputs },
+      },
+    ]);
+    setIsBusMenuOpen(false);
+  };
+
+  // cerrar menús al click fuera
+  const closeAllMenus = () => {
+    setIsAddMenuOpen(false);
+    setIsBusMenuOpen(false);
+  };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100vh",
-        margin: 0,
-        padding: 0,
-        zIndex: 0,
-        background: "transparent",
-      }}
-    >
+    <div style={{ position: "fixed", inset: 0 }} onClick={closeAllMenus}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -156,13 +254,235 @@ const onConnect: OnConnect = (params) => {
         deleteKeyCode={["Backspace", "Delete"]}
         onNodesDelete={(deleted) => {
           const deletedIds = new Set(deleted.map((n) => n.id));
-          setEdges((prev) => prev.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)));
+          setEdges((prev) =>
+            prev.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
+          );
         }}
       >
         <Background />
         <Controls />
       </ReactFlow>
 
+      {/*  MENÚ CENTRADO CSV */}
+      {isAddMenuOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 240,
+            borderRadius: 14,
+            border: "1px solid rgba(0,0,0,0.20)",
+            background: "white",
+            padding: 16,
+            zIndex: 9999,
+            boxShadow: "0 18px 45px rgba(0,0,0,0.22)",
+            textAlign: "center",
+          }}
+        >
+          <h4 style={{ marginBottom: 14, fontWeight: 800, fontSize: 15 }}>
+            Agregar CSV como:
+          </h4>
+
+          {[
+            { t: "generator", label: "Generador" },
+            { t: "battery", label: "Batería" },
+            { t: "charge", label: "Carga" },
+          ].map((item) => (
+            <button
+              key={item.t}
+              onClick={() => chooseTypeAndPickFile(item.t as PowerNodeType)}
+              style={{
+                width: "100%",
+                height: 40,
+                borderRadius: 10,
+                border: "1px solid rgba(0,0,0,0.20)",
+                background: "rgba(245,245,245,0.96)",
+                cursor: "pointer",
+                marginBottom: 10,
+                fontWeight: 800,
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setIsAddMenuOpen(false)}
+            style={{
+              width: "100%",
+              height: 32,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.12)",
+              background: "rgba(255,255,255,0.90)",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/*  MENÚ CENTRADO BUS (config entradas/salidas) */}
+      {isBusMenuOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 280,
+            borderRadius: 14,
+            border: "1px solid rgba(0,0,0,0.20)",
+            background: "white",
+            padding: 16,
+            zIndex: 10000,
+            boxShadow: "0 18px 45px rgba(0,0,0,0.22)",
+            textAlign: "center",
+          }}
+        >
+          <h4 style={{ marginBottom: 12, fontWeight: 900, fontSize: 15 }}>
+            Configurar Bus
+          </h4>
+
+          {/* Inputs */}
+          <div style={{ textAlign: "left", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+              Entradas (inputs)
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setPendingBusInputs((v) => Math.max(1, v - 1))}
+                style={{
+                  width: 40,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(245,245,245,0.96)",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                –
+              </button>
+              <div
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 900,
+                }}
+              >
+                {pendingBusInputs}
+              </div>
+              <button
+                onClick={() => setPendingBusInputs((v) => Math.min(12, v + 1))}
+                style={{
+                  width: 40,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(245,245,245,0.96)",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Outputs */}
+          <div style={{ textAlign: "left", marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
+              Salidas (outputs)
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setPendingBusOutputs((v) => Math.max(1, v - 1))}
+                style={{
+                  width: 40,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(245,245,245,0.96)",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                –
+              </button>
+              <div
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 900,
+                }}
+              >
+                {pendingBusOutputs}
+              </div>
+              <button
+                onClick={() => setPendingBusOutputs((v) => Math.min(12, v + 1))}
+                style={{
+                  width: 40,
+                  height: 36,
+                  borderRadius: 10,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(245,245,245,0.96)",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={createBusWithConfig}
+            style={{
+              width: "100%",
+              height: 40,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.20)",
+              background: "rgba(245,245,245,0.96)",
+              cursor: "pointer",
+              fontWeight: 900,
+              marginBottom: 10,
+            }}
+          >
+            Crear Bus
+          </button>
+
+          <button
+            onClick={() => setIsBusMenuOpen(false)}
+            style={{
+              width: "100%",
+              height: 32,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.12)",
+              background: "rgba(255,255,255,0.90)",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/* ---------------- MENU INFERIOR ---------------- */}
       <div
         style={{
           position: "absolute",
@@ -170,7 +490,6 @@ const onConnect: OnConnect = (params) => {
           right: 24,
           bottom: 18,
           height: 120,
-          zIndex: 50,
           pointerEvents: "none",
         }}
       >
@@ -180,29 +499,25 @@ const onConnect: OnConnect = (params) => {
             width: "100%",
             borderRadius: 14,
             border: "1px solid rgba(0,0,0,0.20)",
-            background:
-              "linear-gradient(180deg, rgba(245,245,245,0.98), rgba(220,220,220,0.95))",
-            boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.85), 0 12px 30px rgba(0,0,0,0.18)",
+            background: "linear-gradient(180deg, #f5f5f5, #ddd)",
+            boxShadow: "inset 0 1px white, 0 12px 30px rgba(0,0,0,0.18)",
             display: "flex",
             alignItems: "center",
-            padding: "14px 14px",
+            padding: 14,
             gap: 14,
             pointerEvents: "auto",
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-
+          {/* LISTA DE CSVs */}
           <div
             style={{
               flex: 1,
-              height: "100%",
               display: "flex",
-              alignItems: "center",
               gap: 14,
               overflowX: "auto",
-              overflowY: "hidden",
-              paddingTop: 6,
-              paddingBottom: 6,
+              height: "100%",
+              alignItems: "center",
             }}
           >
             {menuItems.length === 0 ? (
@@ -216,13 +531,11 @@ const onConnect: OnConnect = (params) => {
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "center",
-                  padding: "10px 12px",
-                  color: "rgba(0,0,0,0.65)",
-                  fontSize: 13,
+                  padding: 10,
                 }}
               >
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Menú de objetos</div>
-                <div>Importá un CSV para que aparezca aquí.</div>
+                <div style={{ fontWeight: 700 }}>Menú de objetos</div>
+                <div style={{ fontSize: 12 }}>Importá un CSV para que aparezca aquí.</div>
               </div>
             ) : (
               menuItems.map((obj) => (
@@ -230,51 +543,35 @@ const onConnect: OnConnect = (params) => {
                   key={obj.id}
                   style={{
                     height: 86,
-                    minWidth: 160,
-                    maxWidth: 240,
+                    minWidth: 170,
                     position: "relative",
                   }}
                 >
                   <button
                     onClick={() => addNodeFromObject(obj)}
-                    title="Click para agregar a la pizarra"
+                    title="Agregar a la pizarra"
                     style={{
                       height: "100%",
                       width: "100%",
                       borderRadius: 12,
                       border: "1px solid rgba(0,0,0,0.20)",
-                      background: "rgba(255,255,255,0.78)",
+                      background: "white",
                       boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
                       padding: "10px 12px",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
                       cursor: "pointer",
                       textAlign: "center",
                     }}
                   >
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: 13,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        width: "100%",
-                        paddingRight: 18,
-                      }}
-                    >
-                      {obj.filename}
-                    </div>
-
-                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.70)" }}>
-                      {obj.rows} intervalos
+                    <div style={{ fontWeight: 800, fontSize: 13 }}>{obj.filename}</div>
+                    <div style={{ fontSize: 12 }}>{obj.rows} intervalos</div>
+                    <div style={{ fontSize: 11, opacity: 0.7 }}>
+                      Tipo: {labelFromType(obj.nodeType)}
                     </div>
                   </button>
 
                   <button
-                    onClick={(ev) => {
-                      ev.stopPropagation();
+                    onClick={(e) => {
+                      e.stopPropagation();
                       removeObject(obj.id);
                     }}
                     aria-label={`Eliminar ${obj.filename}`}
@@ -283,24 +580,25 @@ const onConnect: OnConnect = (params) => {
                       position: "absolute",
                       top: 8,
                       right: 8,
-                      height: 22,
                       width: 22,
-                      borderRadius: 999,
+                      height: 22,
+                      borderRadius: "50%",
                       border: "1px solid rgba(0,0,0,0.25)",
-                      background: "rgba(255,255,255,0.9)",
+                      background: "white",
+                      cursor: "pointer",
                       display: "grid",
                       placeItems: "center",
-                      cursor: "pointer",
-                      fontSize: 14,
-                      lineHeight: 1,
                     }}
                   >
+                    ×
                   </button>
                 </div>
               ))
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+          {/* BOTONES DERECHA */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <button
               onClick={deleteSelected}
               style={{
@@ -308,20 +606,55 @@ const onConnect: OnConnect = (params) => {
                 padding: "0 14px",
                 borderRadius: 12,
                 border: "1px solid rgba(0,0,0,0.20)",
-                background: "rgba(255,255,255,0.88)",
-                boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.85), 0 6px 16px rgba(0,0,0,0.12)",
-                cursor: "pointer",
+                background: "white",
+                boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
                 fontWeight: 700,
-                fontSize: 13,
+                cursor: "pointer",
                 whiteSpace: "nowrap",
               }}
-              title="Borra nodos seleccionados (Delete/Backspace también funciona)"
+              title="Borra nodos seleccionados"
             >
               Eliminar seleccionado
             </button>
 
-            {/* Upload */}
+            <button
+              onClick={addSwitchNode}
+              style={{
+                height: 86,
+                padding: "0 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.20)",
+                background: "white",
+                boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+                fontWeight: 800,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Agregar switch"
+            >
+              Switch
+            </button>
+
+            {/* BUS: ahora abre menú de configuración */}
+            <button
+              onClick={openBusConfigMenu}
+              style={{
+                height: 86,
+                padding: "0 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.20)",
+                background: "white",
+                boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
+                fontWeight: 800,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Agregar bus (configurar entradas/salidas)"
+            >
+              Bus
+            </button>
+
+            {/* input oculto */}
             <input
               ref={fileInputRef}
               type="file"
@@ -330,22 +663,18 @@ const onConnect: OnConnect = (params) => {
               style={{ display: "none" }}
             />
 
+            {/* botón + (abre menú centrado CSV) */}
             <button
-              onClick={openFilePicker}
+              onClick={() => setIsAddMenuOpen((v) => !v)}
               style={{
                 height: 86,
                 width: 86,
+                fontSize: 34,
                 borderRadius: 12,
                 border: "1px solid rgba(0,0,0,0.20)",
-                background: "rgba(255,255,255,0.88)",
-                boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.85), 0 6px 16px rgba(0,0,0,0.12)",
-                display: "grid",
-                placeItems: "center",
+                background: "white",
+                boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
                 cursor: "pointer",
-                fontSize: 34,
-                fontWeight: 700,
-                lineHeight: 1,
               }}
               title="Agregar CSV"
               aria-label="Agregar CSV"
