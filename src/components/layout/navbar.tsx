@@ -34,6 +34,7 @@ export function Navbar() {
     { href: '/cursos-publicos', label: 'Cursos' },
     { href: '/giras', label: 'Giras' },
     { href: '/articulos', label: 'Artículos' },
+    { href: '/upload-profiles', label: 'Simulador' },
   ];
 
   const authenticatedNavLinks = [

@@ -1,31 +1,82 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Gamepad2, Construction } from 'lucide-react';
+"use client";
 
-export default function SimuladorJuniorPage() {
+import React from "react";
+import ReactFlow, { Background, Controls } from "reactflow";
+import "reactflow/dist/style.css";
+
+import GeneratorNode from "./components/GeneratorNode";
+import ChargeNode from "./components/ChargeNode";
+import BatteryNode from "./components/BatteryNode";
+import SwitchNode from "./components/SwitchNode";
+import BusNode from "./components/BusNode";
+import { useGridEditor } from "./hooks/useGridEditor";
+import AddCsvModal from "./components/AddCsvModal";
+import BusConfigModal from "./components/BusConfigModal";
+import BottomBar from "./components/BottomBar";
+
+const nodeTypes = {
+  generator: GeneratorNode,
+  charge: ChargeNode,
+  battery: BatteryNode,
+  switch: SwitchNode,
+  bus: BusNode,
+};
+
+/** Simulador Junior - Editor de red basado en ReactFlow. */
+export default function GridEditor() {
+  const grid = useGridEditor();
+
   return (
-    <div className="container mx-auto px-4 py-12 text-center">
-      <Gamepad2 className="h-20 w-20 mx-auto mb-6 text-primary" />
-      <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary mb-4">
-        Simulador Junior
-      </h1>
-      <p className="text-lg md:text-xl text-foreground/70 max-w-2xl mx-auto mb-8">
-        ¡Prepárate para una experiencia de aprendizaje interactiva y divertida!
-      </p>
-      <div className="bg-accent/10 p-8 rounded-lg inline-block shadow-lg">
-        <Construction className="h-12 w-12 mx-auto mb-4 text-accent" />
-        <p className="font-semibold text-accent text-xl mb-2">¡En Construcción!</p>
-        <p className="text-foreground/80">
-          El Simulador Junior está siendo desarrollado con mucho cariño. 
-          <br />
-          Muy pronto podrás explorar y aprender jugando. ¡Mantente atento!
-        </p>
-      </div>
-      <div className="mt-12">
-        <Button asChild size="lg">
-          <Link href="/">Volver al Inicio</Link>
-        </Button>
-      </div>
+    <div style={{ position: "fixed", inset: 0 }} onClick={grid.closeAllMenus}>
+      <ReactFlow
+        nodes={grid.nodes}
+        edges={grid.edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={grid.onNodesChange}
+        onEdgesChange={grid.onEdgesChange}
+        onConnect={grid.onConnect}
+        fitView
+        deleteKeyCode={["Backspace", "Delete"]}
+        onNodesDelete={grid.onNodesDelete}
+      >
+        <Background />
+        <Controls />
+      </ReactFlow>
+
+      <AddCsvModal
+        isOpen={grid.isAddMenuOpen}
+        onClose={() => grid.setIsAddMenuOpen(false)}
+        onPickType={grid.chooseTypeAndPickFile}
+      />
+
+      <BusConfigModal
+        isOpen={grid.isBusMenuOpen}
+        inputs={grid.pendingBusInputs}
+        outputs={grid.pendingBusOutputs}
+        setInputs={grid.setPendingBusInputs}
+        setOutputs={grid.setPendingBusOutputs}
+        onCreate={grid.createBusWithConfig}
+        onClose={() => grid.setIsBusMenuOpen(false)}
+      />
+
+      <BottomBar
+        menuItems={grid.menuItems}
+        onAddFromObject={grid.addNodeFromObject}
+        onRemoveObject={grid.removeObject}
+        onDeleteSelected={grid.deleteSelected}
+        onAddSwitch={grid.addSwitchNode}
+        onOpenBusConfig={grid.openBusConfigMenu}
+        onToggleAddMenu={() => grid.setIsAddMenuOpen((v) => !v)}
+        fileInput={
+          <input
+            ref={grid.fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={grid.handleCsvUpload}
+            style={{ display: "none" }}
+          />
+        }
+      />
     </div>
   );
 }
