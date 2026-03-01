@@ -28,17 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
   if (!db) throw new Error('Firestore no está inicializado');
@@ -228,36 +217,24 @@ export default function PanelUsuariosPage() {
                         <Badge variant={rolBadgeVariant(u.rol)}>{u.rol}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {u.uid === currentUser.uid ? (
-                          <span className="text-xs text-muted-foreground">Tu cuenta</span>
+                        {u.uid === currentUser?.uid ? (
+                          <span className="text-xs text-muted-foreground italic">Tu cuenta</span>
+                        ) : updatingUserId === u.uid ? (
+                          <Loader2 className="h-4 w-4 animate-spin ml-auto" />
                         ) : (
-                          <AlertDialog>
-                            <Select
-                              value={u.rol}
-                              onValueChange={(newRole) => {
-                                // We'll handle through AlertDialog for confirmation
-                                const dialog = document.getElementById(`role-dialog-${u.uid}`);
-                                if (dialog) {
-                                  dialog.dataset.newRole = newRole;
-                                  dialog.click();
-                                }
-                              }}
-                              disabled={updatingUserId === u.uid}
-                            >
-                              <SelectTrigger className="w-[130px] ml-auto">
-                                {updatingUserId === u.uid ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <SelectValue />
-                                )}
-                              </SelectTrigger>
-                              <SelectContent>
-                                {ROLES.map(r => (
-                                  <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </AlertDialog>
+                          <Select
+                            value={u.rol}
+                            onValueChange={(val) => handleChangeRole(u.uid, val as UserProfile['rol'])}
+                          >
+                            <SelectTrigger className="w-[130px] ml-auto">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES.map(r => (
+                                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         )}
                       </TableCell>
                     </TableRow>
