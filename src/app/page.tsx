@@ -22,7 +22,6 @@ async function getFeaturedProjects(): Promise<FirestoreProject[]> {
     const projectsCollection = collection(db, 'projects');
     const q = query(
       projectsCollection,
-      where('parentId', '==', null),
       orderBy('createdAt', 'desc'),
       limit(4)
     );

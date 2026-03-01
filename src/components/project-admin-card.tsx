@@ -20,16 +20,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Edit, Eye, Trash2, Tag, Loader2, Link as LinkIcon, GitMerge } from 'lucide-react';
+import { Edit, Eye, Trash2, Tag, Loader2, Link as LinkIcon } from 'lucide-react';
 import type { FirestoreProject } from '@/types/project';
 
 interface ProjectAdminCardProps {
   project: FirestoreProject;
   onDelete: (id: string) => void;
-  isSubProject?: boolean;
 }
 
-export function ProjectAdminCard({ project, onDelete, isSubProject = false }: ProjectAdminCardProps) {
+export function ProjectAdminCard({ project, onDelete }: ProjectAdminCardProps) {
   const [deleteInput, setDeleteInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const isDeleteButtonDisabled = deleteInput.toLowerCase() !== 'borrar';
@@ -40,7 +39,7 @@ export function ProjectAdminCard({ project, onDelete, isSubProject = false }: Pr
   };
 
   return (
-    <Card className={`flex flex-col h-full overflow-hidden shadow-md transition-shadow hover:shadow-xl ${isSubProject ? 'bg-muted/30 border-dashed' : ''}`}>
+    <Card className="flex flex-col h-full overflow-hidden shadow-md transition-shadow hover:shadow-xl">
       <CardHeader className="p-0">
         <div className="aspect-video relative w-full">
           <Image
@@ -76,13 +75,6 @@ export function ProjectAdminCard({ project, onDelete, isSubProject = false }: Pr
               </Link>
             </Button>
         </div>
-        {!isSubProject && (
-             <Button asChild variant="default" size="sm" className="col-span-2 flex-1">
-              <Link href={`/profesor/panel-proyectos/crear?parentId=${project.id}`}>
-                <GitMerge className="mr-1 md:mr-2 h-4 w-4" />Crear subproyecto
-              </Link>
-            </Button>
-        )}
         <div className="col-span-2">
             <AlertDialog onOpenChange={() => setDeleteInput('')}>
               <AlertDialogTrigger asChild>
@@ -93,7 +85,7 @@ export function ProjectAdminCard({ project, onDelete, isSubProject = false }: Pr
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>¿Estás seguro de que deseas eliminar este {isSubProject ? 'sub' : ''}proyecto?</AlertDialogTitle>
+                  <AlertDialogTitle>¿Estás seguro de que deseas eliminar este proyecto?</AlertDialogTitle>
                   <AlertDialogDescription>
                     Esta acción no se puede deshacer y eliminará permanentemente el proyecto. Para confirmar, escribe
                     <strong className="text-destructive mx-1">borrar</strong> en el campo siguiente.

@@ -62,7 +62,7 @@ export default function SignupPage() {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         displayName: data.displayName,
-        rol: 'alumno', // Rol por defecto
+        rol: 'invitado', // Rol por defecto
       };
 
       if (!db) {
