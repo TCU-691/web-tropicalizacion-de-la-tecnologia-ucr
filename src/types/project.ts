@@ -104,10 +104,4 @@ export interface FirestoreProject {
     createdBy: string; // User UID
     createdAt: Timestamp;
     updatedAt: Timestamp;
-    parentId?: string | null; // ID of the parent project, if it's a subproject
-}
-
-// Type extension for hierarchical view
-export interface HierarchicalProject extends FirestoreProject {
-    subProjects: FirestoreProject[];
 }

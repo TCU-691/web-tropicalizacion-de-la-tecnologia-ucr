@@ -1,21 +1,23 @@
 
-import { doc, getDoc, getDocs, collection, query, where, Timestamp, limit } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, Timestamp, limit, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreProject, ProjectBlock, RelatedCoursesBlock } from '@/types/project';
+import type { FirestoreTask } from '@/types/task';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Tag, Layers, Link as LinkIcon, Youtube, Mail, Phone, User, Newspaper, FolderArchive, TextIcon, Image as ImageIcon, Contact, FileText, BookHeart, GitMerge } from 'lucide-react';
+import { ArrowLeft, Tag, Layers, Link as LinkIcon, Youtube, Mail, Phone, User, Newspaper, FolderArchive, TextIcon, Image as ImageIcon, Contact, FileText, BookHeart, CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getYoutubeEmbedUrl } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 import { CourseCard } from '@/components/course-card';
-import { ProjectCard } from '@/components/project-card';
 import type { FirestoreCourse } from '@/types/course';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { Progress } from '@/components/ui/progress';
+import { ProjectTasksSection, type SerializedTask } from '@/components/project-tasks-section';
 
 export const revalidate = 0;
 
@@ -98,72 +100,40 @@ export async function generateMetadata({ params }: ProjectPageParams): Promise<M
 }
 
 async function getProjectData(slug: string) {
-    console.log(`[DEBUG] getProjectData - Iniciando búsqueda para slug: ${slug}`);
     if (!db) {
-        console.error('[ERROR] getProjectData - Firestore no está inicializado');
-        return { project: null, subProjects: [], parentProject: null };
+        return { project: null, tasks: [] };
     }
     
     try {
         const projectsCol = collection(db, 'projects');
-        console.log('[DEBUG] getProjectData - Colección de proyectos obtenida');
-        
         const q = query(projectsCol, where('slug', '==', slug), limit(1));
-        console.log(`[DEBUG] getProjectData - Query creada para slug: ${slug}`);
-        
         const querySnapshot = await getDocs(q);
-        console.log(`[DEBUG] getProjectData - Query ejecutada, docs encontrados: ${querySnapshot.docs.length}`);
-        
         const docSnap = querySnapshot.docs[0];
 
         if (!docSnap || !docSnap.exists()) {
-            console.error(`[ERROR] getProjectData - No se encontró proyecto con slug: ${slug}`);
-            return { project: null, subProjects: [], parentProject: null };
+            return { project: null, tasks: [] };
         }
 
         const project = { id: docSnap.id, ...docSnap.data() } as FirestoreProject;
-        console.log(`[INFO] getProjectData - Proyecto encontrado: ${project.name} (ID: ${project.id})`);
 
-        let subProjects: FirestoreProject[] = [];
-        let parentProject: FirestoreProject | null = null;
-
-        if (!project.parentId) {
-            console.log(`[INFO] getProjectData - Proyecto es padre, buscando subproyectos para ID: ${project.id}`);
-            try {
-                const subProjectsQuery = query(collection(db, 'projects'), where('parentId', '==', project.id));
-                console.log(`[DEBUG] getProjectData - Query de subproyectos creada para parentId: ${project.id}`);
-                
-                const subProjectsSnap = await getDocs(subProjectsQuery);
-                console.log(`[INFO] getProjectData - Subproyectos encontrados: ${subProjectsSnap.docs.length}`);
-                
-                subProjects = subProjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject));
-                console.log(`[DEBUG] getProjectData - Datos de subproyectos procesados: ${JSON.stringify(subProjects.map(p => ({ id: p.id, name: p.name })))}`);
-            } catch (error) {
-                console.error(`[ERROR] getProjectData - Error al buscar subproyectos:`, error);
-                if ((error as any).code === 'failed-precondition') {
-                    console.error(`[ERROR] getProjectData - Error de índice compuesto. Verifica que existe un índice para la consulta where('parentId', '==', [valor])`);
-                }
-            }
-        } else {
-            console.log(`[INFO] getProjectData - Proyecto es subproyecto, buscando proyecto padre con ID: ${project.parentId}`);
-            try {
-                const parentDocSnap = await getDoc(doc(db, 'projects', project.parentId));
-                if (parentDocSnap.exists()) {
-                    parentProject = { id: parentDocSnap.id, ...parentDocSnap.data() } as FirestoreProject;
-                    console.log(`[INFO] getProjectData - Proyecto padre encontrado: ${parentProject.name}`);
-                } else {
-                    console.warn(`[WARN] getProjectData - Proyecto padre con ID ${project.parentId} no encontrado`);
-                }
-            } catch (error) {
-                console.error(`[ERROR] getProjectData - Error al buscar proyecto padre:`, error);
-            }
+        // Fetch tasks for this project
+        let tasks: FirestoreTask[] = [];
+        try {
+            const tasksQuery = query(
+                collection(db, 'tasks'),
+                where('parentId', '==', project.id),
+                orderBy('endDate', 'asc')
+            );
+            const tasksSnap = await getDocs(tasksQuery);
+            tasks = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() } as FirestoreTask));
+        } catch (error) {
+            console.error(`[ERROR] getProjectData - Error al buscar tareas:`, error);
         }
 
-        console.log(`[DEBUG] getProjectData - Finalizando con éxito para ${project.name}`);
-        return { project, subProjects, parentProject };
+        return { project, tasks };
     } catch (error) {
         console.error(`[ERROR] getProjectData - Error general:`, error);
-        return { project: null, subProjects: [], parentProject: null };
+        return { project: null, tasks: [] };
     }
 }
 
@@ -252,35 +222,36 @@ function renderBlock(block: ProjectBlock, index: number) {
 
 
 export default async function ProjectPage({ params }: ProjectPageParams) {
-  console.log(`[DEBUG] ProjectPage - Iniciando renderizado para slug: ${(await params).slug}`);
-  
-  const { project, subProjects, parentProject } = await getProjectData((await params).slug);
-  console.log(`[INFO] ProjectPage - Datos obtenidos: proyecto ${project?.name || 'no encontrado'}, ${subProjects.length} subproyectos, proyecto padre ${parentProject?.name || 'ninguno'}`);
+  const { project, tasks } = await getProjectData((await params).slug);
 
   if (!project) {
-    console.error(`[ERROR] ProjectPage - Proyecto no encontrado para slug: ${(await params).slug}`);
     notFound();
   }
 
+  // Serialize tasks for the client component (convert Timestamps to ISO strings)
+  const serializedTasks: SerializedTask[] = tasks.map(task => {
+    const endDate = task.endDate?.toDate ? task.endDate.toDate() : new Date(task.endDate as any);
+    return {
+      id: task.id,
+      name: task.name,
+      description: task.description,
+      endDate: endDate.toISOString(),
+      hours: task.hours,
+      maxSlots: task.maxSlots,
+      status: task.status,
+      usedSlots: task.usedSlots,
+      parentId: task.parentId,
+    };
+  });
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-        {parentProject ? (
-             <div className="mb-6">
-                <Button asChild variant="link" className="p-0 text-muted-foreground">
-                    <Link href={`/proyectos/${parentProject.slug}`}>
-                        <GitMerge className="mr-2 h-4 w-4" />
-                        Subproyecto de: {parentProject.name}
-                    </Link>
-                </Button>
-            </div>
-        ) : (
-            <Button asChild variant="outline" className="mb-8 group">
-                <Link href="/proyectos">
-                <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-                Todos los Proyectos
-                </Link>
-            </Button>
-        )}
+        <Button asChild variant="outline" className="mb-8 group">
+            <Link href="/proyectos">
+            <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Todos los Proyectos
+            </Link>
+        </Button>
       
 
       <article>
@@ -302,30 +273,9 @@ export default async function ProjectPage({ params }: ProjectPageParams) {
             </Card>
         </section>
         
-        {(() => {
-            if (subProjects.length > 0) {
-                console.log(`[INFO] ProjectPage - Renderizando ${subProjects.length} subproyectos`);
-                return (
-                    <div key="subprojects-section">
-                        <Separator className="my-8" />
-                        <section className="space-y-4">
-                            <h3 className="font-headline text-2xl font-semibold text-primary flex items-center">
-                                <GitMerge className="mr-3 h-6 w-6"/>Subproyectos Relacionados
-                            </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {subProjects.map(sub => {
-                                    console.log(`[DEBUG] ProjectPage - Renderizando subproyecto: ${sub.name} (ID: ${sub.id})`);
-                                    return <ProjectCard key={sub.id} project={sub} />;
-                                })}
-                            </div>
-                        </section>
-                    </div>
-                );
-            } else {
-                console.log(`[INFO] ProjectPage - No hay subproyectos para mostrar para el proyecto ${project.name}`);
-                return null;
-            }
-        })()}
+        {serializedTasks.length > 0 && (
+            <ProjectTasksSection tasks={serializedTasks} />
+        )}
 
         {project.blocks && project.blocks.length > 0 && (
             <div className="space-y-8">
