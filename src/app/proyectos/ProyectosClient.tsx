@@ -27,16 +27,11 @@ export function ProyectosClient() {
           throw new Error('Failed to fetch projects');
         }
         const projectsData: FirestoreProject[] = await response.json();
-        
-        // Filter in client-side to include projects with parentId=null or missing parentId
-        const filteredData = projectsData.filter(
-          project => project.parentId === null || project.parentId === undefined
-        );
 
-        setAllProjects(filteredData);
-        setFilteredProjects(filteredData);
+        setAllProjects(projectsData);
+        setFilteredProjects(projectsData);
         
-        const uniqueCategories = Array.from(new Set(filteredData.map(p => p.category).filter(Boolean)));
+        const uniqueCategories = Array.from(new Set(projectsData.map(p => p.category).filter(Boolean)));
         setCategories(uniqueCategories);
 
       } catch (error) {

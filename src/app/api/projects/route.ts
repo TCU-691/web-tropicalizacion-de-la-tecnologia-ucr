@@ -15,8 +15,7 @@ export async function GET() {
     const querySnapshot = await getDocs(query(projectsCollection, orderBy('createdAt', 'desc')));
     
     const projectsData = querySnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject))
-      .filter(project => project.parentId === null || project.parentId === undefined);
+      .map(doc => ({ id: doc.id, ...doc.data() } as FirestoreProject));
 
     return NextResponse.json(projectsData, { status: 200 });
   } catch (error) {

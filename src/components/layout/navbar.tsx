@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { Menu, TentTree, LogOut, UploadCloud, UserCircle, ChevronDown, FolderKanban, Map, FileText, BookCheck, PenSquare } from 'lucide-react';
+import { Menu, TentTree, LogOut, UploadCloud, UserCircle, ChevronDown, FolderKanban, Map, FileText, BookCheck, PenSquare, UsersRound, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -69,6 +69,12 @@ export function Navbar() {
             <DropdownMenuSeparator />
              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
+                  <Link href="/mis-tareas" className="flex items-center">
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Mis Tareas
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/subir-curso" className="flex items-center">
                     <UploadCloud className="mr-2 h-4 w-4" />
                     Subir Curso
@@ -111,6 +117,12 @@ export function Navbar() {
                         Panel de Giras
                       </Link >
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-usuarios" className="flex items-center">
+                        <UsersRound className="mr-2 h-4 w-4" />
+                        Panel de Usuarios
+                      </Link>
+                    </DropdownMenuItem>
                  </DropdownMenuGroup>
               </>
             )}
@@ -147,6 +159,11 @@ export function Navbar() {
             <p className="px-4 text-sm font-medium text-muted-foreground mb-2">
               {userProfile.displayName || userProfile.email} ({userProfile.rol})
             </p>
+            <SheetClose asChild>
+              <Link href="/mis-tareas" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                <ClipboardList className="mr-2 h-5 w-5" /> Mis Tareas
+              </Link>
+            </SheetClose>
              {authenticatedNavLinks.map(link => (
                 <SheetClose asChild key={link.href}>
                   <Link href={link.href} className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
@@ -176,6 +193,11 @@ export function Navbar() {
                 <SheetClose asChild>
                   <Link href="/profesor/panel-giras" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <Map className="mr-2 h-5 w-5" /> Panel de Giras
+                  </Link>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Link href="/profesor/panel-usuarios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <UsersRound className="mr-2 h-5 w-5" /> Panel de Usuarios
                   </Link>
                 </SheetClose>
               </>

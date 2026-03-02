@@ -25,6 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user && db) { // Asegurarse que db esté inicializado
@@ -40,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               uid: user.uid,
               email: user.email,
               displayName: user.displayName || user.email || 'Usuario Anónimo', // Fallback para displayName
-              rol: 'alumno', // Rol por defecto
+              rol: 'invitado', // Rol por defecto
             };
             try {
               await setDoc(userDocRef, newUserProfile);
@@ -86,7 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await firebaseSignOut(auth);
+      if (auth) {
+        await firebaseSignOut(auth);
+      }
       // setCurrentUser(null); // onAuthStateChanged se encargará de esto
       // setUserProfile(null); // onAuthStateChanged se encargará de esto
       toast({

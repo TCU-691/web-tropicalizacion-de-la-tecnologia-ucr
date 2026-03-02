@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, useFieldArray, type SubmitHandler, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +18,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from '@/hooks/use-toast';
 import { Save, Loader2, ArrowLeft, Image as ImageIcon, BookCopy, Puzzle, PlusCircle, Trash2, Youtube, Text, Link2, Images, Contact, Newspaper, FolderArchive, BookHeart } from 'lucide-react';
 import { upload as imageKitUpload, ImageKitAbortError, ImageKitInvalidRequestError, ImageKitServerError, ImageKitUploadNetworkError } from "@imagekit/next";
-import { addDoc, collection, Timestamp, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, Timestamp, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreCourse } from '@/types/course';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -102,13 +102,10 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
 function CrearProyectoClient() {
   const { currentUser, loading: authLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const parentId = searchParams.get('parentId');
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [parentProjectName, setParentProjectName] = useState<string | null>(null);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -121,20 +118,6 @@ function CrearProyectoClient() {
       blocks: [],
     },
   });
-
-  useEffect(() => {
-    if (parentId) {
-      const fetchParentProject = async () => {
-        assertDb(db);
-        const parentDoc = await getDoc(doc(db, 'projects', parentId));
-        if (parentDoc.exists()) {
-          setParentProjectName(parentDoc.data().name);
-        }
-      };
-      fetchParentProject();
-    }
-  }, [parentId]);
-
 
   const { fields: blockFields, append: appendBlock, remove: removeBlock } = useFieldArray({
     control: form.control,
@@ -221,14 +204,13 @@ function CrearProyectoClient() {
         createdBy: currentUser.uid,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-        parentId: parentId || null,
       };
       
       await addDoc(collection(db, 'projects'), projectDataToSave);
 
       toast({
-        title: parentId ? "Subproyecto Creado" : "Proyecto Creado",
-        description: `El nuevo ${parentId ? 'subproyecto' : 'proyecto'} ha sido guardado exitosamente.`,
+        title: "Proyecto Creado",
+        description: "El nuevo proyecto ha sido guardado exitosamente.",
       });
       router.push('/profesor/panel-proyectos');
 
@@ -275,14 +257,10 @@ function CrearProyectoClient() {
           <Card className="max-w-4xl mx-auto shadow-xl">
             <CardHeader className="text-center">
               <CardTitle className="font-headline text-3xl md:text-4xl">
-                {parentId ? 'Crear Subproyecto' : 'Crear Nuevo Proyecto'}
+                Crear Nuevo Proyecto
               </CardTitle>
               <CardDescription className="text-lg text-foreground/70">
-                 {parentId && parentProjectName ? (
-                    <>Creando un subproyecto para: <span className="font-semibold text-primary">{parentProjectName}</span></>
-                 ) : (
-                    'Completa la información y añade bloques de contenido para dar vida a tu proyecto.'
-                 )}
+                Completa la información y añade bloques de contenido para dar vida a tu proyecto.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-10">
