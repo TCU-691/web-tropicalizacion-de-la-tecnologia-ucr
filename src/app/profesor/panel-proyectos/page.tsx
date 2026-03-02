@@ -40,9 +40,7 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
 }
 
 function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: FirestoreTask; projectId: string; onDelete: (id: string) => void; onClickDetail: (task: FirestoreTask) => void }) {
-  const [deleteInput, setDeleteInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const isDeleteButtonDisabled = deleteInput.toLowerCase() !== 'borrar';
 
   const endDate = task.endDate?.toDate ? task.endDate.toDate() : new Date(task.endDate as any);
   const slotsPercentage = task.maxSlots > 0 ? (task.usedSlots / task.maxSlots) * 100 : 0;
@@ -76,44 +74,32 @@ function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: Fir
           </span>
         </div>
         <Progress value={slotsPercentage} className="h-1.5" />
-        <div className="flex gap-2 pt-1">
-          <Button asChild variant="outline" size="sm" className="flex-1" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+          <Button asChild variant="outline" size="sm" className="flex-1">
             <Link href={`/profesor/panel-proyectos/${projectId}/tareas/editar/${task.id}`}>
               <Edit className="mr-1 h-3 w-3" />
               <span className="text-xs">Editar</span>
             </Link>
           </Button>
-          <AlertDialog onOpenChange={() => setDeleteInput('')}>
+          <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="flex-1" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <Button variant="destructive" size="sm" className="flex-1">
                 <Trash2 className="mr-1 h-3 w-3" />
                 <span className="text-xs">Eliminar</span>
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Eliminar esta tarea?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta acción no se puede deshacer. Escribe
-                  <strong className="text-destructive mx-1">borrar</strong> para confirmar.
+                  Esta acción no se puede deshacer. Se eliminará la tarea <strong>&quot;{task.name}&quot;</strong> de forma permanente.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <div className="my-2">
-                <Label htmlFor={`delete-task-${task.id}`} className="sr-only">Confirmar borrado</Label>
-                <Input
-                  id={`delete-task-${task.id}`}
-                  type="text"
-                  value={deleteInput}
-                  onChange={(e) => setDeleteInput(e.target.value)}
-                  placeholder="Escribe 'borrar' para confirmar"
-                  autoComplete="off"
-                />
-              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => { setIsDeleting(true); onDelete(task.id); }}
-                  disabled={isDeleteButtonDisabled || isDeleting}
+                  disabled={isDeleting}
                   className="bg-destructive hover:bg-destructive/90"
                 >
                   {isDeleting ? <Loader2 className="animate-spin" /> : 'Sí, eliminar'}
