@@ -3,21 +3,12 @@ import { addEdge, useEdgesState, useNodesState, type Edge, type OnConnect } from
 import type { CsvObject, CustomNodeType, NodeData, PowerNodeType } from "../utils";
 import { canConnect, quickCsvStats } from "../utils";
 
-const initialNodes = [
-  {
-    id: "1",
-    type: "generator" as const,
-    position: { x: 100, y: 120 },
-    data: { label: "Generador" },
-  },
-];
-
 /**
  * Centralizes GridEditor state and actions.
  * Keeps the page focused on layout and composition.
  */
 export function useGridEditor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [objects, setObjects] = useState<CsvObject[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
