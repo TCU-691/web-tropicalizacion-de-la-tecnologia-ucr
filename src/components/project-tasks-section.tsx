@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ClipboardList, CalendarDays, Clock, Users, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TaskDetailDialog, type TaskDetailData } from '@/components/task-detail-dialog';
 
 export interface SerializedTask {
   id: string;
@@ -32,6 +33,8 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
   const [assignmentMap, setAssignmentMap] = useState<Record<string, string>>({}); // taskId -> assignmentDocId
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // taskId currently being acted on
+  const [selectedTask, setSelectedTask] = useState<TaskDetailData | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Fetch user's assignments when user loads
   useEffect(() => {
@@ -178,7 +181,11 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
             const isActioning = actionLoading === task.id;
 
             return (
-              <Card key={task.id} className={`transition-shadow hover:shadow-md ${isOverdue ? 'border-destructive/50' : ''}`}>
+              <Card
+                key={task.id}
+                className={`transition-shadow hover:shadow-md cursor-pointer ${isOverdue ? 'border-destructive/50' : ''}`}
+                onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{task.name}</CardTitle>
@@ -224,7 +231,7 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
                           variant="outline"
                           size="sm"
                           className="w-full"
-                          onClick={() => handleUnassign(task.id)}
+                          onClick={(e) => { e.stopPropagation(); handleUnassign(task.id); }}
                           disabled={isActioning}
                         >
                           {isActioning ? (
@@ -238,7 +245,7 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
                         <Button
                           size="sm"
                           className="w-full"
-                          onClick={() => handleAssign(task.id)}
+                          onClick={(e) => { e.stopPropagation(); handleAssign(task.id); }}
                           disabled={isActioning || isFull}
                         >
                           {isActioning ? (
@@ -256,6 +263,12 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
             );
           })}
         </div>
+
+        <TaskDetailDialog
+          task={selectedTask}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+        />
       </section>
     </div>
   );

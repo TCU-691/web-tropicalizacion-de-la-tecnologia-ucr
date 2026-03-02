@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { TaskDetailDialog, type TaskDetailData } from '@/components/task-detail-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +39,7 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
   if (!db) throw new Error('Firestore no está inicializado');
 }
 
-function TaskAdminCard({ task, projectId, onDelete }: { task: FirestoreTask; projectId: string; onDelete: (id: string) => void }) {
+function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: FirestoreTask; projectId: string; onDelete: (id: string) => void; onClickDetail: (task: FirestoreTask) => void }) {
   const [deleteInput, setDeleteInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const isDeleteButtonDisabled = deleteInput.toLowerCase() !== 'borrar';
@@ -47,7 +48,7 @@ function TaskAdminCard({ task, projectId, onDelete }: { task: FirestoreTask; pro
   const slotsPercentage = task.maxSlots > 0 ? (task.usedSlots / task.maxSlots) * 100 : 0;
 
   return (
-    <Card className="bg-muted/30 border-dashed">
+    <Card className="bg-muted/30 border-dashed cursor-pointer hover:shadow-md transition-shadow" onClick={() => onClickDetail(task)}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="font-medium text-sm">{task.name}</h4>
@@ -76,7 +77,7 @@ function TaskAdminCard({ task, projectId, onDelete }: { task: FirestoreTask; pro
         </div>
         <Progress value={slotsPercentage} className="h-1.5" />
         <div className="flex gap-2 pt-1">
-          <Button asChild variant="outline" size="sm" className="flex-1">
+          <Button asChild variant="outline" size="sm" className="flex-1" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             <Link href={`/profesor/panel-proyectos/${projectId}/tareas/editar/${task.id}`}>
               <Edit className="mr-1 h-3 w-3" />
               <span className="text-xs">Editar</span>
@@ -84,7 +85,7 @@ function TaskAdminCard({ task, projectId, onDelete }: { task: FirestoreTask; pro
           </Button>
           <AlertDialog onOpenChange={() => setDeleteInput('')}>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="flex-1">
+              <Button variant="destructive" size="sm" className="flex-1" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <Trash2 className="mr-1 h-3 w-3" />
                 <span className="text-xs">Eliminar</span>
               </Button>
@@ -135,6 +136,24 @@ export default function PanelProyectosPage() {
   const [tasksMap, setTasksMap] = useState<Map<string, FirestoreTask[]>>(new Map());
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [selectedTask, setSelectedTask] = useState<TaskDetailData | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const handleTaskClick = (task: FirestoreTask) => {
+    const endDate = task.endDate?.toDate ? task.endDate.toDate() : new Date(task.endDate as any);
+    setSelectedTask({
+      id: task.id,
+      name: task.name,
+      description: task.description,
+      endDate: endDate.toISOString(),
+      hours: task.hours,
+      maxSlots: task.maxSlots,
+      status: task.status,
+      usedSlots: task.usedSlots,
+      parentId: task.parentId,
+    });
+    setDetailOpen(true);
+  };
 
   useEffect(() => {
     if (!authLoading) {
@@ -319,6 +338,7 @@ export default function PanelProyectosPage() {
                                         task={task}
                                         projectId={project.id}
                                         onDelete={handleDeleteTask}
+                                        onClickDetail={handleTaskClick}
                                       />
                                   ))}
                                 </AccordionContent>
@@ -345,6 +365,12 @@ export default function PanelProyectosPage() {
           )}
         </CardContent>
       </Card>
+
+      <TaskDetailDialog
+        task={selectedTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   );
 }

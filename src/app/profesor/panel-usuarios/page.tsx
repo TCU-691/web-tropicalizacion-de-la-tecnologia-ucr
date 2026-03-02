@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import type { UserProfile } from '@/types/user';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { UserTasksDialog } from '@/components/user-tasks-dialog';
 import {
   Select,
   SelectContent,
@@ -60,6 +61,8 @@ export default function PanelUsuariosPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRol, setFilterRol] = useState<string>('todos');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -210,13 +213,18 @@ export default function PanelUsuariosPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map(u => (
-                    <TableRow key={u.uid}>
+                    <TableRow
+                      key={u.uid}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => { setSelectedUser(u); setDialogOpen(true); }}
+                    >
                       <TableCell className="font-medium">{u.displayName || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{u.email || '—'}</TableCell>
                       <TableCell>
                         <Badge variant={rolBadgeVariant(u.rol)}>{u.rol}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                        <div onClick={(e) => e.stopPropagation()}>
                         {u.uid === currentUser?.uid ? (
                           <span className="text-xs text-muted-foreground italic">Tu cuenta</span>
                         ) : updatingUserId === u.uid ? (
@@ -236,6 +244,7 @@ export default function PanelUsuariosPage() {
                             </SelectContent>
                           </Select>
                         )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -245,6 +254,12 @@ export default function PanelUsuariosPage() {
           )}
         </CardContent>
       </Card>
+
+      <UserTasksDialog
+        user={selectedUser}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }
