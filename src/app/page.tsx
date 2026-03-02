@@ -117,7 +117,7 @@ export default async function HomePage() {
                <Link href="/giras">Ver Giras</Link>
             </Button>
              <Button asChild variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-shadow bg-accent/20 border-accent/50 text-accent-foreground hover:bg-accent/30">
-              <Link href="/upload-profiles">Simulador Junior</Link>
+              <Link href="/simulador-junior">Simulador Junior</Link>
             </Button>
           </div>
         </div>
