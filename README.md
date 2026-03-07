@@ -167,3 +167,73 @@ Otro (con etiqueta personalizada)
 4. Hacer clic en Upload files
 5. Ver los resultados con todos los perfiles cargados
 
+## Preparación de Firebase Emulators (local)
+
+> Ejecutar estos pasos desde la raíz del proyecto (donde está `firebase.json`).
+
+### 1) Requisitos
+
+- Node.js 20+  
+- Firebase CLI  
+- Java JDK 21 (requerido por Firestore Emulator)
+
+### 2) Instalar dependencias del sistema (Ubuntu/Debian)
+
+```bash
+sudo apt update
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+sudo apt install -y openjdk-21-jdk
+java -version
+```
+
+### 3) Instalar Firebase CLI y autenticar
+
+```bash
+npm install -g firebase-tools
+which firebase
+firebase login
+firebase
+```
+
+### 4) Levantar emuladores
+
+```bash
+firebase emulators:start
+```
+
+Según `firebase.json`, se levantan en:
+
+- Auth: `9099`
+- Firestore: `8080`
+- Storage: `9199`
+- Emulator UI: habilitada (puerto automático)
+
+### 5) Nota para el frontend
+
+El frontend ya intenta conectarse automáticamente a emuladores en modo desarrollo cuando se abre en `localhost` (ver `src/lib/firebase.ts`).
+
+Si se quiere usar Firebase real temporalmente, comentar este bloque o agrega una variable de entorno para desactivar emuladores:
+
+```typescript
+// TODO: REVERTIR - Emuladores desactivados temporalmente para testing con Firebase real
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+  if (window.location.hostname === "localhost") {
+    try {
+      if (auth && !auth.emulatorConfig) {
+        connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+      }
+      // @ts-ignore
+      if (db && db.INTERNAL && db.INTERNAL.settings && !db.INTERNAL.settings.host.includes('localhost')) {
+         connectFirestoreEmulator(db, "localhost", 8080);
+      }
+      if (storage && !(storage as any).emulatorConfig) { // Check if storage is initialized and not already connected
+        connectStorageEmulator(storage, "localhost", 9199);
+      }
+    } catch (error) {
+      console.warn("Error connecting to Firebase emulators:", error);
+    }
+  }
+}
+```
+
