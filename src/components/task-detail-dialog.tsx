@@ -43,6 +43,8 @@ import {
   FileText,
   Download,
   UserCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import type { FirestoreTaskComment } from '@/types/task-comment';
 import type { FirestoreTaskDocument } from '@/types/task-document';
@@ -101,6 +103,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   // --- Participants ---
   const [participants, setParticipants] = useState<UserProfile[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [copiedEmails, setCopiedEmails] = useState(false);
 
   // --- Comments ---
   const [comments, setComments] = useState<FirestoreTaskComment[]>([]);
@@ -111,6 +114,26 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   const [documents, setDocuments] = useState<FirestoreTaskDocument[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Copy emails function ──
+  const handleCopyEmails = async () => {
+    const emails = participants.map(p => p.email).filter(Boolean);
+    if (emails.length === 0) {
+      toast({ title: 'No hay correos para copiar', variant: 'destructive' });
+      return;
+    }
+
+    const emailsText = emails.join('; ');
+    try {
+      await navigator.clipboard.writeText(emailsText);
+      setCopiedEmails(true);
+      toast({ title: `${emails.length} correo(s) copiado(s)` });
+      setTimeout(() => setCopiedEmails(false), 2000);
+    } catch (error) {
+      console.error('Error copying emails:', error);
+      toast({ title: 'Error al copiar correos', variant: 'destructive' });
+    }
+  };
 
   // Reset state when task changes
   useEffect(() => {
@@ -410,6 +433,29 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
 
           {/* ── Participants Tab ── */}
           <TabsContent value="participants" className="flex-1 min-h-0">
+          <div className="flex flex-col h-[280px] gap-3">
+            {/* Copy button */}
+            {!loadingParticipants && participants.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyEmails}
+                className="w-full"
+              >
+                {copiedEmails ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Correos copiados
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar correos ({participants.length})
+                  </>
+                )}
+              </Button>
+            )}
+
             <ScrollArea className="h-[280px] pr-3">
               {loadingParticipants ? (
                 <div className="flex items-center justify-center py-8">
@@ -448,7 +494,8 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                 </div>
               )}
             </ScrollArea>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
           {/* ── Documents / Evidence Tab ── */}
           {canAccessEvidence && <TabsContent value="documents" className="flex-1 min-h-0">
