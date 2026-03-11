@@ -2,8 +2,6 @@
 
 Este repositorio contiene una aplicación hecha con Firebase para el frontend y python para el backend del simulador
 
-## Como ejecutar el proyecto
-
 ## Cómo ejecutar el proyecto
 
 ### Importante: ejecutar ambos servidores
@@ -196,10 +194,25 @@ firebase login
 firebase
 ```
 
-### 4) Levantar emuladores
+### 4) **Crear/verifica `.env.development`** en la raíz del proyecto:
+
+  ```env
+  NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDemo...
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=demo-tropicalizacion.firebaseapp.com
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-tropicalizacion
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=demo-tropicalizacion.appspot.com
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+  NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123xyz
+  NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
+  ```
+
+- **`NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`** es obligatorio para modo desarrollo.
+- Reiniciar el servidor Next.js si se cambia `.env.development`.
+
+### 5) Levantar emuladores
 
 ```bash
-firebase emulators:start
+firebase emulators:start --import=.firebase/emulator-data --export-on-exit --project demo-tropicalizacion
 ```
 
 Según `firebase.json`, se levantan en:
@@ -209,31 +222,20 @@ Según `firebase.json`, se levantan en:
 - Storage: `9199`
 - Emulator UI: habilitada (puerto automático)
 
-### 5) Nota para el frontend
 
-El frontend ya intenta conectarse automáticamente a emuladores en modo desarrollo cuando se abre en `localhost` (ver `src/lib/firebase.ts`).
+Por defecto, los emuladores **no guardan datos** entre reinicios. Para habilitar persistencia:
 
-Si se quiere usar Firebase real temporalmente, comentar este bloque o agrega una variable de entorno para desactivar emuladores:
+1. En `firebase.json`, configurar con:
+   ```json
+   "firestoreExportOnExit": true
+   ```
 
-```typescript
-// TODO: REVERTIR - Emuladores desactivados temporalmente para testing con Firebase real
-if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  if (window.location.hostname === "localhost") {
-    try {
-      if (auth && !auth.emulatorConfig) {
-        connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-      }
-      // @ts-ignore
-      if (db && db.INTERNAL && db.INTERNAL.settings && !db.INTERNAL.settings.host.includes('localhost')) {
-         connectFirestoreEmulator(db, "localhost", 8080);
-      }
-      if (storage && !(storage as any).emulatorConfig) { // Check if storage is initialized and not already connected
-        connectStorageEmulator(storage, "localhost", 9199);
-      }
-    } catch (error) {
-      console.warn("Error connecting to Firebase emulators:", error);
-    }
-  }
-}
-```
+2. Los datos se guardan en `.firebase/emulator-data/`
 
+3. Para **limpiar todos los datos** (reiniciar emuladores vacíos):
+   ```bash
+   rm -rf .firebase/emulator-data
+   firebase emulators:start --project demo-tropicalizacion
+   ```
+
+**Nota**: Esta persistencia es **solo local** para desarrollo.

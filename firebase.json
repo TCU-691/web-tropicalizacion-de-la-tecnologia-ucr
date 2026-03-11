@@ -12,5 +12,6 @@
     "ui": {
       "enabled": true
     }
-  }
+  },
+  "firestoreExportOnExit": true
 }
