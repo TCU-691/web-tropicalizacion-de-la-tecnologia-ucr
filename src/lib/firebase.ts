@@ -43,24 +43,25 @@ const auth = app! ? getAuth(app!) : null;
 const db = app! ? getFirestore(app!) : null;
 const storage = app! ? getStorage(app!) : null;
 
-// TODO: REVERTIR - Emuladores desactivados temporalmente para testing con Firebase real
-// if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-//   if (window.location.hostname === "localhost") {
-//     try {
-//       if (auth && !auth.emulatorConfig) {
-//         connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-//       }
-//       // @ts-ignore
-//       if (db && db.INTERNAL && db.INTERNAL.settings && !db.INTERNAL.settings.host.includes('localhost')) {
-//          connectFirestoreEmulator(db, "localhost", 8080);
-//       }
-//       if (storage && !(storage as any).emulatorConfig) { // Check if storage is initialized and not already connected
-//         connectStorageEmulator(storage, "localhost", 9199);
-//       }
-//     } catch (error) {
-//       console.warn("Error connecting to Firebase emulators:", error);
-//     }
-//   }
-// }
+// Usar emuladores si estos valores se encuentran en .env
+const useEmulators =
+  process.env.NODE_ENV === 'development' &&
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+
+if (useEmulators) {
+  try {
+    if (auth && !auth.emulatorConfig) {
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    }
+    if (db) {
+      connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    }
+    if (storage && !(storage as any).emulatorConfig) {
+      connectStorageEmulator(storage, '127.0.0.1', 9199);
+    }
+  } catch (error) {
+    console.warn('Error connecting to Firebase emulators:', error);
+  }
+}
 
 export { app, auth, db, storage };
