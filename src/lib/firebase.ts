@@ -43,16 +43,10 @@ const auth = app! ? getAuth(app!) : null;
 const db = app! ? getFirestore(app!) : null;
 const storage = app! ? getStorage(app!) : null;
 
-// Usar emuladores sí estos valores se encuentran en .env
+// Usar emuladores si estos valores se encuentran en .env
 const useEmulators =
   process.env.NODE_ENV === 'development' &&
   process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
-
-if (typeof window !== 'undefined') {
-  console.log('[firebase] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[firebase] NEXT_PUBLIC_USE_FIREBASE_EMULATORS:', process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS);
-  console.log('[firebase] useEmulators:', useEmulators);
-}
 
 if (useEmulators) {
   try {
