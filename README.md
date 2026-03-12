@@ -62,7 +62,7 @@ python -m uvicorn main:app --reload
 
 El servidor quedará en: http://127.0.0.1:8000
 
-#### Como probar el Backend
+#### Cómo probar el Backend
 **Opción 1: documentación interactiva de la API**
 
 - Abrir en el navegador: http://127.0.0.1:8000/docs
@@ -161,7 +161,7 @@ Uso del simulador
    - Generación solar (PV)
    - Generación eólica
    - Generación hidroeléctrica
-Otro (con etiqueta personalizada)
+   - Otro (con etiqueta personalizada)
 4. Hacer clic en Upload files
 5. Ver los resultados con todos los perfiles cargados
 
