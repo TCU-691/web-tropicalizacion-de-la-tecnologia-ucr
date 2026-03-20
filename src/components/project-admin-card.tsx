@@ -26,9 +26,10 @@ import type { FirestoreProject } from '@/types/project';
 interface ProjectAdminCardProps {
   project: FirestoreProject;
   onDelete: (id: string) => void;
+  canEdit?: boolean;
 }
 
-export function ProjectAdminCard({ project, onDelete }: ProjectAdminCardProps) {
+export function ProjectAdminCard({ project, onDelete, canEdit = true }: ProjectAdminCardProps) {
   const [deleteInput, setDeleteInput] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const isDeleteButtonDisabled = deleteInput.toLowerCase() !== 'borrar';
@@ -62,12 +63,14 @@ export function ProjectAdminCard({ project, onDelete }: ProjectAdminCardProps) {
       </CardContent>
       <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-2">
         <div className="col-span-2 grid grid-cols-2 gap-2">
-            <Button asChild variant="outline" size="sm" className="flex-1">
-              <Link href={`/profesor/panel-proyectos/editar/${project.id}`}>
-                <Edit className="mr-1 md:mr-2 h-4 w-4" />
-                <span className="hidden md:inline">Editar</span>
-              </Link>
-            </Button>
+            {canEdit && (
+              <Button asChild variant="outline" size="sm" className="flex-1">
+                <Link href={`/profesor/panel-proyectos/editar/${project.id}`}>
+                  <Edit className="mr-1 md:mr-2 h-4 w-4" />
+                  <span className="hidden md:inline">Editar</span>
+                </Link>
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="flex-1">
               <Link href={`/proyectos/${project.slug}`} target="_blank">
                 <Eye className="mr-1 md:mr-2 h-4 w-4" />
@@ -75,7 +78,8 @@ export function ProjectAdminCard({ project, onDelete }: ProjectAdminCardProps) {
               </Link>
             </Button>
         </div>
-        <div className="col-span-2">
+        {canEdit && (
+          <div className="col-span-2">
             <AlertDialog onOpenChange={() => setDeleteInput('')}>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="w-full">
@@ -116,6 +120,7 @@ export function ProjectAdminCard({ project, onDelete }: ProjectAdminCardProps) {
               </AlertDialogContent>
             </AlertDialog>
         </div>
+        )}
       </CardFooter>
     </Card>
   );

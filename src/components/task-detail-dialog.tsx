@@ -185,20 +185,22 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   }, [task, open]);
 
   const isProfesorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
+  const isAsistente = userProfile?.rol === 'asistente';
+  const isProfesorAdminOrAsistente = isProfesorOrAdmin || isAsistente;
   const isAlumno = userProfile?.rol === 'alumno';
-  // Alumnos that are assigned to the task can submit evidence; profs/admins can view all
+  // Alumnos that are assigned to the task can submit evidence; profs/admins/asistentes can view all
   const isAssignedAlumno = isAlumno && participants.some((p) => p.uid === currentUser?.uid);
-  const canAccessEvidence = isProfesorOrAdmin || isAssignedAlumno;
+  const canAccessEvidence = isProfesorAdminOrAsistente || isAssignedAlumno;
 
   // ── Real-time comments listener ──
-  // Profesores/admins: ven todos los comentarios de la tarea
+  // Profesores/admins/asistentes: ven todos los comentarios de la tarea
   // Alumnos asignados: solo ven sus propios comentarios
   useEffect(() => {
     if (!task || !open || !db || !canAccessEvidence || !currentUser) return;
     assertDb(db);
 
     let q;
-    if (isProfesorOrAdmin) {
+    if (isProfesorAdminOrAsistente) {
       q = query(
         collection(db, 'taskComments'),
         where('taskId', '==', task.id),
@@ -221,7 +223,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorOrAdmin, currentUser]);
+  }, [task, open, canAccessEvidence, isProfesorAdminOrAsistente, currentUser]);
 
   // ── Real-time documents listener ──
   // Profesores/admins: ven todos los documentos de la tarea
@@ -231,7 +233,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     assertDb(db);
 
     let q;
-    if (isProfesorOrAdmin) {
+    if (isProfesorAdminOrAsistente) {
       q = query(
         collection(db, 'taskDocuments'),
         where('taskId', '==', task.id),
@@ -254,7 +256,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorOrAdmin, currentUser]);
+  }, [task, open, canAccessEvidence, isProfesorAdminOrAsistente, currentUser]);
 
   // ── Add comment ──
   const handleAddComment = async () => {
@@ -549,7 +551,8 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                       const canDelete =
                         currentUser?.uid === d.userId ||
                         userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin';
+                        userProfile?.rol === 'admin' ||
+                        userProfile?.rol === 'asistente';
 
                       return (
                         <div
@@ -627,7 +630,8 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                       const canDelete =
                         currentUser?.uid === c.userId ||
                         userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin';
+                        userProfile?.rol === 'admin' ||
+                        userProfile?.rol === 'asistente';
 
                       return (
                         <div key={c.id} className="rounded-lg border p-3 space-y-1">

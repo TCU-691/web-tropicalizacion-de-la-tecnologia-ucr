@@ -81,13 +81,13 @@ function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: Fir
               <span className="text-xs">Editar</span>
             </Link>
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="flex-1">
-                <Trash2 className="mr-1 h-3 w-3" />
-                <span className="text-xs">Eliminar</span>
-              </Button>
-            </AlertDialogTrigger>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="flex-1">
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  <span className="text-xs">Eliminar</span>
+                </Button>
+              </AlertDialogTrigger>
             <AlertDialogContent onClick={(e: React.MouseEvent) => e.stopPropagation()}>
               <AlertDialogHeader>
                 <AlertDialogTitle>¿Eliminar esta tarea?</AlertDialogTitle>
@@ -145,14 +145,14 @@ export default function PanelProyectosPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-proyectos');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin') {
+      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
         router.push('/unauthorized?page=panel-proyectos');
       }
     }
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin')) {
+    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente')) {
       assertDb(db);
       const projectsCollection = collection(db, 'projects');
       const q = query(projectsCollection, orderBy('createdAt', 'desc'));
@@ -176,7 +176,7 @@ export default function PanelProyectosPage() {
 
   // Listen to all tasks
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin')) {
+    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente')) {
       assertDb(db);
       const tasksCollection = collection(db, 'tasks');
       const q = query(tasksCollection, orderBy('endDate', 'asc'));
@@ -251,7 +251,7 @@ export default function PanelProyectosPage() {
     );
   }
 
-  if (userProfile.rol !== 'profesor' && userProfile.rol !== 'admin') {
+  if (userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
     return (
      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] text-center">
        <ShieldAlert className="h-16 w-16 text-destructive mb-6" />
@@ -276,15 +276,17 @@ export default function PanelProyectosPage() {
               <CardTitle className="font-headline text-3xl">Administración de Proyectos</CardTitle>
             </div>
             <CardDescription className="text-md text-foreground/70">
-              Gestiona los proyectos y sus tareas asociadas.
+              {userProfile.rol === 'asistente' ? 'Gestiona las tareas de los proyectos.' : 'Gestiona los proyectos y sus tareas asociadas.'}
             </CardDescription>
           </div>
-          <Button asChild>
-            <Link href="/profesor/panel-proyectos/crear">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Crear nuevo proyecto
-            </Link>
-          </Button>
+          {(userProfile.rol === 'profesor' || userProfile.rol === 'admin') && (
+            <Button asChild>
+              <Link href="/profesor/panel-proyectos/crear">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Crear nuevo proyecto
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="pt-6">
           {loadingProjects || loadingTasks ? (
@@ -299,43 +301,54 @@ export default function PanelProyectosPage() {
                 return (
                 <Card key={project.id} className="bg-card">
                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="md:col-span-2">
-                          <ProjectAdminCard 
-                            project={project}
-                            onDelete={() => handleDeleteProject(project.id)}
-                          />
-                        </div>
-                        <div className="md:col-span-1 space-y-3">
-                          <Button asChild variant="default" size="sm" className="w-full">
-                            <Link href={`/profesor/panel-proyectos/${project.id}/tareas/crear`}>
-                              <ClipboardList className="mr-2 h-4 w-4" />Crear tarea
-                            </Link>
-                          </Button>
-                          {projectTasks.length > 0 ? (
-                            <Accordion type="single" collapsible className="w-full">
-                              <AccordionItem value="tasks">
-                                <AccordionTrigger>
-                                   Tareas ({projectTasks.length})
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-3 pt-3">
-                                  {projectTasks.map(task => (
-                                      <TaskAdminCard
-                                        key={task.id}
-                                        task={task}
-                                        projectId={project.id}
-                                        onDelete={handleDeleteTask}
-                                        onClickDetail={handleTaskClick}
-                                      />
-                                  ))}
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4 border-2 border-dashed rounded-md">
-                               <p className="text-sm">Este proyecto no tiene tareas.</p>
-                               <p className="text-xs mt-1">Usa el botón "Crear tarea" para añadir una.</p>
-                            </div>
-                          )}
+                        {(userProfile.rol === 'profesor' || userProfile.rol === 'admin') && (
+                          <div className="md:col-span-2">
+                            <ProjectAdminCard 
+                              project={project}
+                              onDelete={() => handleDeleteProject(project.id)}
+                              canEdit={userProfile.rol === 'profesor' || userProfile.rol === 'admin'}
+                            />
+                          </div>
+                        )}
+                        <div className={userProfile.rol === 'asistente' ? 'md:col-span-3' : 'md:col-span-1'}>
+                          <div className="space-y-3">
+                            {userProfile.rol === 'asistente' && (
+                              <div className="bg-muted/50 border border-border rounded-lg p-3 mb-3">
+                                <h4 className="font-medium text-sm mb-1">{project.name}</h4>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{project.description}</p>
+                              </div>
+                            )}
+                            <Button asChild variant="default" size="sm" className="w-full">
+                              <Link href={`/profesor/panel-proyectos/${project.id}/tareas/crear`}>
+                                <ClipboardList className="mr-2 h-4 w-4" />Crear tarea
+                              </Link>
+                            </Button>
+                            {projectTasks.length > 0 ? (
+                              <Accordion type="single" collapsible className="w-full">
+                                <AccordionItem value="tasks">
+                                  <AccordionTrigger>
+                                     Tareas ({projectTasks.length})
+                                  </AccordionTrigger>
+                                  <AccordionContent className="space-y-3 pt-3">
+                                    {projectTasks.map(task => (
+                                        <TaskAdminCard
+                                          key={task.id}
+                                          task={task}
+                                          projectId={project.id}
+                                          onDelete={handleDeleteTask}
+                                          onClickDetail={handleTaskClick}
+                                        />
+                                    ))}
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-4 border-2 border-dashed rounded-md">
+                                 <p className="text-sm">Este proyecto no tiene tareas.</p>
+                                 <p className="text-xs mt-1">Usa el botón "Crear tarea" para añadir una.</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                    </div>
                 </Card>

@@ -61,7 +61,7 @@ export default function CrearTareaPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-proyectos');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin') {
+      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
         router.push('/unauthorized?page=panel-proyectos');
       }
     }
