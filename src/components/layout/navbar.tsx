@@ -43,6 +43,8 @@ export function Navbar() {
   ];
 
   const isProfessorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
+  const canAccessUserPanel = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente';
+  const canAccessProyectPanel = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente';
 
   const renderAuthSection = () => {
     if (loading) {
@@ -106,24 +108,42 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/profesor/panel-proyectos" className="flex items-center">
-                        <FolderKanban className="mr-2 h-4 w-4" />
-                        Panel de Proyectos
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
                       <Link href="/profesor/panel-giras" className="flex items-center">
                         <Map className="mr-2 h-4 w-4" />
                         Panel de Giras
                       </Link >
                     </DropdownMenuItem>
+                 </DropdownMenuGroup>
+              </>
+            )}
+
+            {canAccessProyectPanel && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Tareas y Proyectos</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-proyectos" className="flex items-center">
+                        <FolderKanban className="mr-2 h-4 w-4" />
+                        Panel de Proyectos
+                      </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
+            
+            {canAccessUserPanel && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Administración</DropdownMenuLabel>
+                <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
                       <Link href="/profesor/panel-usuarios" className="flex items-center">
                         <UsersRound className="mr-2 h-4 w-4" />
                         Panel de Usuarios
                       </Link>
                     </DropdownMenuItem>
-                 </DropdownMenuGroup>
+                </DropdownMenuGroup>
               </>
             )}
 
@@ -195,6 +215,12 @@ export function Navbar() {
                     <Map className="mr-2 h-5 w-5" /> Panel de Giras
                   </Link>
                 </SheetClose>
+              </>
+            )}
+
+            {canAccessUserPanel && (
+              <>
+                {!isProfessorOrAdmin && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
                 <SheetClose asChild>
                   <Link href="/profesor/panel-usuarios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <UsersRound className="mr-2 h-5 w-5" /> Panel de Usuarios
