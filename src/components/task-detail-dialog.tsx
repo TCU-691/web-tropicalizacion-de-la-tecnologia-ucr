@@ -231,27 +231,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = f
 
   // ── Real-time documents listener ──
   // Profesores/admins: ven todos los documentos de la tarea
-  // Alumnos asignados: solo ven sus propios documentos
+  // Alumnos asignados: ven todos los documentos de la tarea (no solo los suyos)
   useEffect(() => {
     if (!task || !open || !db || !canAccessEvidence || !currentUser) return;
     assertDb(db);
 
-    let q;
-    if (canModerateByRole) {
-      q = query(
-        collection(db, 'taskDocuments'),
-        where('taskId', '==', task.id),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // Alumno: solo sus propios documentos
-      q = query(
-        collection(db, 'taskDocuments'),
-        where('taskId', '==', task.id),
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-    }
+    // Todos (profesores, admins, asistentes y alumnos) ven todos los documentos
+    const q = query(
+      collection(db, 'taskDocuments'),
+      where('taskId', '==', task.id),
+      orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       setDocuments(
@@ -260,7 +250,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = f
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, canModerateByRole, currentUser]);
+  }, [task, open, canAccessEvidence, currentUser]);
 
   // ── Add comment ──
   const handleAddComment = async () => {

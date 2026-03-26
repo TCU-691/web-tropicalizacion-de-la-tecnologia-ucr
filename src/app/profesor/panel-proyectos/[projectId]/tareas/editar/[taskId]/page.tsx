@@ -280,7 +280,7 @@ export default function EditarTareaPage() {
                   )}
                 />
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="hours"
@@ -303,20 +303,6 @@ export default function EditarTareaPage() {
                         <FormLabel>Espacios Máx.</FormLabel>
                         <FormControl>
                           <Input type="number" min={1} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="usedSlots"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Espacios Usados</FormLabel>
-                        <FormControl>
-                          <Input type="number" min={0} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
