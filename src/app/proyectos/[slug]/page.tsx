@@ -274,7 +274,7 @@ export default async function ProjectPage({ params }: ProjectPageParams) {
         </section>
         
         {serializedTasks.length > 0 && (
-            <ProjectTasksSection tasks={serializedTasks} />
+          <ProjectTasksSection tasks={serializedTasks} projectLeaderIds={project.leaderIds || []} />
         )}
 
         {project.blocks && project.blocks.length > 0 && (

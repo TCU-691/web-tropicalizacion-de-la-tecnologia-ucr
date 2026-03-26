@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { ClipboardList, CalendarDays, Clock, Users, UserPlus, UserMinus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TaskDetailDialog, type TaskDetailData } from '@/components/task-detail-dialog';
+import { canParticipateInTasks, canModerateTaskEvidence, normalizeRole } from '@/lib/roles';
 
 export interface SerializedTask {
   id: string;
@@ -25,7 +26,13 @@ export interface SerializedTask {
   parentId: string;
 }
 
-export function ProjectTasksSection({ tasks: initialTasks }: { tasks: SerializedTask[] }) {
+export function ProjectTasksSection({
+  tasks: initialTasks,
+  projectLeaderIds = [],
+}: {
+  tasks: SerializedTask[];
+  projectLeaderIds?: string[];
+}) {
   const { currentUser, userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState<SerializedTask[]>(initialTasks);
@@ -153,7 +160,7 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
   if (authLoading) {
     return null;
   }
-  if (!currentUser || !userProfile || userProfile.rol === 'invitado') {
+  if (!currentUser || !userProfile || !canParticipateInTasks(userProfile.rol)) {
     return null;
   }
 
@@ -161,7 +168,11 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
     return null;
   }
 
-  const canAssign = userProfile.rol === 'alumno' || userProfile.rol === 'profesor' || userProfile.rol === 'admin';
+  const isLeaderForProject =
+    normalizeRole(userProfile.rol) === 'lider' &&
+    projectLeaderIds.includes(currentUser.uid);
+  const canAssign = canParticipateInTasks(userProfile.rol);
+  const canModerateEvidence = canModerateTaskEvidence(userProfile.rol, isLeaderForProject);
 
   return (
     <div>
@@ -268,6 +279,7 @@ export function ProjectTasksSection({ tasks: initialTasks }: { tasks: Serialized
           task={selectedTask}
           open={detailOpen}
           onOpenChange={setDetailOpen}
+          canModerateTask={canModerateEvidence}
         />
       </section>
     </div>

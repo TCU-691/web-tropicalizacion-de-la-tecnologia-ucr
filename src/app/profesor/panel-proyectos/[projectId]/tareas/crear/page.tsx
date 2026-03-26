@@ -18,6 +18,8 @@ import { Save, Loader2, ArrowLeft, ClipboardList } from 'lucide-react';
 import { addDoc, collection, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { TASK_STATUSES } from '@/types/task';
+import type { FirestoreProject } from '@/types/project';
+import { canManageTasksForProject, normalizeRole } from '@/lib/roles';
 
 function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
   if (!db) throw new Error('Firestore no está inicializado');
@@ -44,6 +46,7 @@ export default function CrearTareaPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectName, setProjectName] = useState<string>('');
   const [loadingProject, setLoadingProject] = useState(true);
+  const [hasProjectTaskAccess, setHasProjectTaskAccess] = useState(false);
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -61,20 +64,31 @@ export default function CrearTareaPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-proyectos');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin') {
-        router.push('/unauthorized?page=panel-proyectos');
       }
     }
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
-    if (projectId && currentUser) {
+    if (projectId && currentUser && userProfile) {
       const fetchProject = async () => {
         try {
           assertDb(db);
           const projectDoc = await getDoc(doc(db, 'projects', projectId));
           if (projectDoc.exists()) {
-            setProjectName(projectDoc.data().name);
+            const projectData = projectDoc.data() as FirestoreProject;
+            setProjectName(projectData.name);
+
+            const isLeaderForProject =
+              normalizeRole(userProfile?.rol) === 'lider' &&
+              (projectData.leaderIds || []).includes(currentUser.uid);
+            const canManage = canManageTasksForProject(userProfile?.rol, isLeaderForProject);
+            setHasProjectTaskAccess(canManage);
+
+            if (!canManage) {
+              toast({ title: 'Sin permisos para este proyecto', variant: 'destructive' });
+              router.push('/unauthorized?page=panel-proyectos');
+              return;
+            }
           } else {
             toast({ title: 'Proyecto no encontrado', variant: 'destructive' });
             router.push('/profesor/panel-proyectos');
@@ -87,7 +101,7 @@ export default function CrearTareaPage() {
       };
       fetchProject();
     }
-  }, [projectId, currentUser, toast, router]);
+  }, [projectId, currentUser, userProfile, toast, router]);
 
   const onSubmit: SubmitHandler<TaskFormValues> = async (data) => {
     if (!currentUser) return;
@@ -126,13 +140,17 @@ export default function CrearTareaPage() {
     }
   };
 
-  if (authLoading || !currentUser || loadingProject) {
+  if (authLoading || !currentUser || !userProfile || loadingProject) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Cargando...</p>
       </div>
     );
+  }
+
+  if (!hasProjectTaskAccess) {
+    return null;
   }
 
   return (

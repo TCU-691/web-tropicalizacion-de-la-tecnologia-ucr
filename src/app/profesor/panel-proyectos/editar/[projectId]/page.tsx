@@ -25,6 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FirestoreCourse } from '@/types/course';
 import { generateSlug, isSlugUnique } from '@/lib/utils';
+import { canManageProjects } from '@/lib/roles';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -115,7 +116,7 @@ const uploadImage = async (file: File, folder: string): Promise<string> => {
 };
 
 export default function EditarProyectoPage() {
-  const { currentUser, loading: authLoading } = useAuth();
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const projectId = params.projectId as string;
@@ -126,6 +127,12 @@ export default function EditarProyectoPage() {
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [initialProjectData, setInitialProjectData] = useState<FirestoreProject | null>(null);
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && currentUser && userProfile && !canManageProjects(userProfile.rol)) {
+      router.push('/unauthorized?page=panel-proyectos');
+    }
+  }, [authLoading, currentUser, userProfile, router]);
 
   const form = useForm<ProjectEditFormValues>({
     resolver: zodResolver(projectEditSchema),
@@ -281,6 +288,8 @@ export default function EditarProyectoPage() {
   if (authLoading || isLoadingProject) {
     return ( <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]"><Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /><p className="text-muted-foreground">Cargando editor de proyecto...</p></div>);
   }
+
+  if (!userProfile || !canManageProjects(userProfile.rol)) return null;
   
   if (projectNotFound) {
     return ( <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] text-center"><AlertTriangle className="h-12 w-12 text-destructive mb-4" /><h1 className="text-2xl font-semibold mb-2">Proyecto No Encontrado</h1><p className="text-muted-foreground mb-6">El proyecto que intentas editar no existe o fue eliminado.</p><Button asChild><Link href="/profesor/panel-proyectos">Volver al Panel</Link></Button></div>)

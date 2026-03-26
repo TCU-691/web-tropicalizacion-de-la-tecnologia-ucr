@@ -19,6 +19,8 @@ import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreTask } from '@/types/task';
 import { TASK_STATUSES } from '@/types/task';
+import type { FirestoreProject } from '@/types/project';
+import { canManageTasksForProject, normalizeRole } from '@/lib/roles';
 
 function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude<typeof db, null> {
   if (!db) throw new Error('Firestore no está inicializado');
@@ -48,6 +50,7 @@ export default function EditarTareaPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [taskNotFound, setTaskNotFound] = useState(false);
   const [projectName, setProjectName] = useState<string>('');
+  const [hasProjectTaskAccess, setHasProjectTaskAccess] = useState(false);
 
   const form = useForm<TaskEditFormValues>({
     resolver: zodResolver(taskEditSchema),
@@ -66,14 +69,12 @@ export default function EditarTareaPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-proyectos');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin') {
-        router.push('/unauthorized?page=panel-proyectos');
       }
     }
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
-    if (taskId && projectId && currentUser) {
+    if (taskId && projectId && currentUser && userProfile) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
@@ -82,7 +83,20 @@ export default function EditarTareaPage() {
           // Fetch project name
           const projectDoc = await getDoc(doc(db, 'projects', projectId));
           if (projectDoc.exists()) {
-            setProjectName(projectDoc.data().name);
+            const projectData = projectDoc.data() as FirestoreProject;
+            setProjectName(projectData.name);
+
+            const isLeaderForProject =
+              normalizeRole(userProfile?.rol) === 'lider' &&
+              (projectData.leaderIds || []).includes(currentUser.uid);
+            const canManage = canManageTasksForProject(userProfile?.rol, isLeaderForProject);
+            setHasProjectTaskAccess(canManage);
+
+            if (!canManage) {
+              toast({ title: 'Sin permisos para este proyecto', variant: 'destructive' });
+              router.push('/unauthorized?page=panel-proyectos');
+              return;
+            }
           }
 
           // Fetch task
@@ -113,7 +127,7 @@ export default function EditarTareaPage() {
       };
       fetchData();
     }
-  }, [taskId, projectId, currentUser, form, toast]);
+  }, [taskId, projectId, currentUser, userProfile, form, toast, router]);
 
   const onSubmit: SubmitHandler<TaskEditFormValues> = async (data) => {
     if (!currentUser || !taskId) return;
@@ -152,13 +166,17 @@ export default function EditarTareaPage() {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || !userProfile || isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Cargando editor de tarea...</p>
       </div>
     );
+  }
+
+  if (!hasProjectTaskAccess) {
+    return null;
   }
 
   if (taskNotFound) {
@@ -262,7 +280,7 @@ export default function EditarTareaPage() {
                   )}
                 />
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="hours"
@@ -285,20 +303,6 @@ export default function EditarTareaPage() {
                         <FormLabel>Espacios Máx.</FormLabel>
                         <FormControl>
                           <Input type="number" min={1} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="usedSlots"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Espacios Usados</FormLabel>
-                        <FormControl>
-                          <Input type="number" min={0} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
