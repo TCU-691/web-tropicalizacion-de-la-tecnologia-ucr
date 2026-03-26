@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, TentTree, LogOut, UploadCloud, UserCircle, ChevronDown, FolderKanban, Map, FileText, BookCheck, PenSquare, UsersRound, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { canAccessProjectPanel, canAccessUserPanel, canManageProjects } from '@/lib/roles';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function Navbar() {
@@ -42,9 +43,9 @@ export function Navbar() {
     { href: '/crear-articulo', label: 'Escribir Artículo', icon: PenSquare },
   ];
 
-  const isProfessorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
-  const canAccessUserPanel = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente';
-  const canAccessProyectPanel = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente';
+  const canAccessProfessorPanels = canManageProjects(userProfile?.rol);
+  const canAccessUserPanelSection = canAccessUserPanel(userProfile?.rol);
+  const canAccessProjectPanelSection = canAccessProjectPanel(userProfile?.rol);
 
   const renderAuthSection = () => {
     if (loading) {
@@ -90,7 +91,7 @@ export function Navbar() {
                 </DropdownMenuItem>
              </DropdownMenuGroup>
             
-            {isProfessorOrAdmin && (
+            {canAccessProfessorPanels && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Paneles de Profesor</DropdownMenuLabel>
@@ -117,7 +118,7 @@ export function Navbar() {
               </>
             )}
 
-            {canAccessProyectPanel && (
+            {canAccessProjectPanelSection && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Tareas y Proyectos</DropdownMenuLabel>
@@ -132,7 +133,7 @@ export function Navbar() {
               </>
             )}
             
-            {canAccessUserPanel && (
+            {canAccessUserPanelSection && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Administración</DropdownMenuLabel>
@@ -192,7 +193,7 @@ export function Navbar() {
                 </SheetClose>
             ))}
             
-             {isProfessorOrAdmin && (
+             {canAccessProfessorPanels && (
               <>
                 <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Profesor</p>
                 <SheetClose asChild>
@@ -218,9 +219,20 @@ export function Navbar() {
               </>
             )}
 
-            {canAccessUserPanel && (
+            {canAccessProjectPanelSection && !canAccessProfessorPanels && (
               <>
-                {!isProfessorOrAdmin && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
+                <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Tareas y Proyectos</p>
+                <SheetClose asChild>
+                  <Link href="/profesor/panel-proyectos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <FolderKanban className="mr-2 h-5 w-5" /> Panel de Proyectos
+                  </Link>
+                </SheetClose>
+              </>
+            )}
+
+            {canAccessUserPanelSection && (
+              <>
+                {!canAccessProfessorPanels && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
                 <SheetClose asChild>
                   <Link href="/profesor/panel-usuarios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <UsersRound className="mr-2 h-5 w-5" /> Panel de Usuarios

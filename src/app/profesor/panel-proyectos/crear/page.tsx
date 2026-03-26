@@ -24,6 +24,7 @@ import type { FirestoreCourse } from '@/types/course';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateSlug, isSlugUnique } from '@/lib/utils';
+import { canManageProjects } from '@/lib/roles';
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -100,12 +101,18 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
 }
 
 function CrearProyectoClient() {
-  const { currentUser, loading: authLoading } = useAuth();
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && currentUser && userProfile && !canManageProjects(userProfile.rol)) {
+      router.push('/unauthorized?page=panel-proyectos');
+    }
+  }, [authLoading, currentUser, userProfile, router]);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -201,6 +208,7 @@ function CrearProyectoClient() {
         category: data.category,
         coverImageUrl,
         blocks: cleanBlocks,
+        leaderIds: [],
         createdBy: currentUser.uid,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -234,7 +242,7 @@ function CrearProyectoClient() {
   };
 
 
-  if (authLoading || !currentUser) {
+  if (authLoading || !currentUser || !userProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -242,6 +250,8 @@ function CrearProyectoClient() {
       </div>
     );
   }
+
+  if (!canManageProjects(userProfile.rol)) return null;
 
   return (
     <div className="container mx-auto py-8">

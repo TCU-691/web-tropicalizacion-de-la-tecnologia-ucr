@@ -10,10 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, ShieldAlert, FolderKanban, PlusCircle, Search, ClipboardList, Clock, Users, CalendarDays, Edit, Trash2 } from 'lucide-react';
 import { ProjectAdminCard } from '@/components/project-admin-card';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreProject } from '@/types/project';
 import type { FirestoreTask } from '@/types/task';
+import type { UserProfile } from '@/types/user';
+import { canAccessProjectPanel, canManageProjects, canManageTasksForProject, canModerateTaskEvidence, canAssignProjectLeaders, normalizeRole } from '@/lib/roles';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { deleteDocumentWithImages } from '@/lib/delete-utils';
 import { Badge } from '@/components/ui/badge';
@@ -124,9 +126,19 @@ export default function PanelProyectosPage() {
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [selectedTask, setSelectedTask] = useState<TaskDetailData | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedTaskCanModerate, setSelectedTaskCanModerate] = useState(false);
+  const [leaders, setLeaders] = useState<UserProfile[]>([]);
+  const [updatingLeadersProjectId, setUpdatingLeadersProjectId] = useState<string | null>(null);
 
-  const handleTaskClick = (task: FirestoreTask) => {
+  const isLeaderForProject = (project: FirestoreProject): boolean => {
+    if (!currentUser) return false;
+    const leaderIds = project.leaderIds || [];
+    return leaderIds.length === 0 || leaderIds.includes(currentUser.uid);
+  };
+
+  const handleTaskClick = (task: FirestoreTask, project: FirestoreProject) => {
     const endDate = task.endDate?.toDate ? task.endDate.toDate() : new Date(task.endDate as any);
+    setSelectedTaskCanModerate(canModerateTaskEvidence(userProfile?.rol, isLeaderForProject(project)));
     setSelectedTask({
       id: task.id,
       name: task.name,
@@ -145,14 +157,14 @@ export default function PanelProyectosPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-proyectos');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
+      } else if (userProfile && !canAccessProjectPanel(userProfile.rol)) {
         router.push('/unauthorized?page=panel-proyectos');
       }
     }
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente')) {
+    if (currentUser && canAccessProjectPanel(userProfile?.rol)) {
       assertDb(db);
       const projectsCollection = collection(db, 'projects');
       const q = query(projectsCollection, orderBy('createdAt', 'desc'));
@@ -176,7 +188,7 @@ export default function PanelProyectosPage() {
 
   // Listen to all tasks
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente')) {
+    if (currentUser && canAccessProjectPanel(userProfile?.rol)) {
       assertDb(db);
       const tasksCollection = collection(db, 'tasks');
       const q = query(tasksCollection, orderBy('endDate', 'asc'));
@@ -194,6 +206,28 @@ export default function PanelProyectosPage() {
       }, (error) => {
         console.error("Error fetching tasks: ", error);
         setLoadingTasks(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentUser, userProfile]);
+
+  useEffect(() => {
+    if (currentUser && canAssignProjectLeaders(userProfile?.rol)) {
+      assertDb(db);
+      const usersCollection = collection(db, 'users');
+      const q = query(usersCollection, where('rol', '==', 'lider'));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const leadersData = snapshot.docs
+          .map((leaderDoc) => ({ ...leaderDoc.data(), uid: leaderDoc.id } as UserProfile))
+          .sort((firstLeader, secondLeader) =>
+            (firstLeader.displayName || firstLeader.email || '').localeCompare(
+              secondLeader.displayName || secondLeader.email || '',
+              'es'
+            )
+          );
+        setLeaders(leadersData);
       });
 
       return () => unsubscribe();
@@ -242,6 +276,27 @@ export default function PanelProyectosPage() {
     }
   };
 
+  const handleToggleProjectLeader = async (project: FirestoreProject, leaderUid: string, checked: boolean) => {
+    if (!canAssignProjectLeaders(userProfile?.rol)) return;
+
+    setUpdatingLeadersProjectId(project.id);
+    try {
+      assertDb(db);
+      const currentLeaderIds = project.leaderIds || [];
+      const nextLeaderIds = checked
+        ? Array.from(new Set([...currentLeaderIds, leaderUid]))
+        : currentLeaderIds.filter((leaderId) => leaderId !== leaderUid);
+
+      await updateDoc(doc(db, 'projects', project.id), { leaderIds: nextLeaderIds });
+      toast({ title: 'Liderazgo actualizado' });
+    } catch (error) {
+      console.error('Error updating project leaders: ', error);
+      toast({ title: 'Error al actualizar líderes', variant: 'destructive' });
+    } finally {
+      setUpdatingLeadersProjectId(null);
+    }
+  };
+
   if (authLoading || !currentUser || !userProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)]">
@@ -251,7 +306,7 @@ export default function PanelProyectosPage() {
     );
   }
 
-  if (userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
+  if (!canAccessProjectPanel(userProfile.rol)) {
     return (
      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] text-center">
        <ShieldAlert className="h-16 w-16 text-destructive mb-6" />
@@ -266,6 +321,10 @@ export default function PanelProyectosPage() {
    );
   }
 
+  const visibleProjects = normalizeRole(userProfile.rol) === 'lider'
+    ? projects.filter(project => isLeaderForProject(project))
+    : projects;
+
   return (
     <div className="container mx-auto py-8 space-y-8">
       <Card className="shadow-lg">
@@ -276,10 +335,12 @@ export default function PanelProyectosPage() {
               <CardTitle className="font-headline text-3xl">Administración de Proyectos</CardTitle>
             </div>
             <CardDescription className="text-md text-foreground/70">
-              {userProfile.rol === 'asistente' ? 'Gestiona las tareas de los proyectos.' : 'Gestiona los proyectos y sus tareas asociadas.'}
+              {normalizeRole(userProfile.rol) === 'profesor'
+                ? 'Gestiona los proyectos y sus tareas asociadas.'
+                : 'Gestiona las tareas de los proyectos permitidos.'}
             </CardDescription>
           </div>
-          {(userProfile.rol === 'profesor' || userProfile.rol === 'admin') && (
+          {canManageProjects(userProfile.rol) && (
             <Button asChild>
               <Link href="/profesor/panel-proyectos/crear">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -294,35 +355,67 @@ export default function PanelProyectosPage() {
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground">Cargando proyectos...</p>
             </div>
-          ) : projects.length > 0 ? (
+          ) : visibleProjects.length > 0 ? (
             <div className="space-y-6">
-              {projects.map(project => {
+              {visibleProjects.map(project => {
                 const projectTasks = tasksMap.get(project.id) || [];
+                const canManageProjectTasks = canManageTasksForProject(userProfile.rol, isLeaderForProject(project));
+                const canEditProject = canManageProjects(userProfile.rol);
+                const canAssignLeaders = canAssignProjectLeaders(userProfile.rol);
+                const projectLeaderIds = project.leaderIds || [];
                 return (
                 <Card key={project.id} className="bg-card">
                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {(userProfile.rol === 'profesor' || userProfile.rol === 'admin') && (
+                        {canEditProject && (
                           <div className="md:col-span-2">
                             <ProjectAdminCard 
                               project={project}
                               onDelete={() => handleDeleteProject(project.id)}
-                              canEdit={userProfile.rol === 'profesor' || userProfile.rol === 'admin'}
+                              canEdit={canEditProject}
                             />
                           </div>
                         )}
-                        <div className={userProfile.rol === 'asistente' ? 'md:col-span-3' : 'md:col-span-1'}>
+                        <div className={!canEditProject ? 'md:col-span-3' : 'md:col-span-1'}>
                           <div className="space-y-3">
-                            {userProfile.rol === 'asistente' && (
+                            {!canEditProject && (
                               <div className="bg-muted/50 border border-border rounded-lg p-3 mb-3">
                                 <h4 className="font-medium text-sm mb-1">{project.name}</h4>
                                 <p className="text-xs text-muted-foreground line-clamp-2">{project.description}</p>
                               </div>
                             )}
-                            <Button asChild variant="default" size="sm" className="w-full">
+
+                            {canAssignLeaders && (
+                              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Liderazgo del proyecto</p>
+                                {leaders.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">No hay usuarios con rol Líder para asignar.</p>
+                                ) : (
+                                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                    {leaders.map((leaderUser) => {
+                                      const isChecked = projectLeaderIds.includes(leaderUser.uid);
+                                      return (
+                                        <label key={leaderUser.uid} className="flex items-center justify-between gap-2 text-sm">
+                                          <span className="truncate">{leaderUser.displayName || leaderUser.email}</span>
+                                          <Input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(event) => handleToggleProjectLeader(project, leaderUser.uid, event.target.checked)}
+                                            disabled={updatingLeadersProjectId === project.id}
+                                            className="h-4 w-4"
+                                          />
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {canManageProjectTasks && <Button asChild variant="default" size="sm" className="w-full">
                               <Link href={`/profesor/panel-proyectos/${project.id}/tareas/crear`}>
                                 <ClipboardList className="mr-2 h-4 w-4" />Crear tarea
                               </Link>
-                            </Button>
+                            </Button>}
                             {projectTasks.length > 0 ? (
                               <Accordion type="single" collapsible className="w-full">
                                 <AccordionItem value="tasks">
@@ -336,7 +429,7 @@ export default function PanelProyectosPage() {
                                           task={task}
                                           projectId={project.id}
                                           onDelete={handleDeleteTask}
-                                          onClickDetail={handleTaskClick}
+                                          onClickDetail={(clickedTask) => handleTaskClick(clickedTask, project)}
                                         />
                                     ))}
                                   </AccordionContent>
@@ -369,6 +462,7 @@ export default function PanelProyectosPage() {
         task={selectedTask}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        canModerateTask={selectedTaskCanModerate}
       />
     </div>
   );

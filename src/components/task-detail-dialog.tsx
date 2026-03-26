@@ -49,6 +49,7 @@ import {
 import type { FirestoreTaskComment } from '@/types/task-comment';
 import type { FirestoreTaskDocument } from '@/types/task-document';
 import type { UserProfile } from '@/types/user';
+import { normalizeRole } from '@/lib/roles';
 
 export interface TaskDetailData {
   id: string;
@@ -66,6 +67,7 @@ interface TaskDetailDialogProps {
   task: TaskDetailData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canModerateTask?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -96,7 +98,7 @@ const authenticator = async () => {
 };
 
 // ─── Component ────────────────────────────────────────────
-export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = false }: TaskDetailDialogProps) {
   const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
 
@@ -184,13 +186,15 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     fetchParticipants();
   }, [task, open]);
 
-  const isProfesorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
-  const isAsistente = userProfile?.rol === 'asistente';
-  const isProfesorAdminOrAsistente = isProfesorOrAdmin || isAsistente;
-  const isAlumno = userProfile?.rol === 'alumno';
+  const normalizedRole = normalizeRole(userProfile?.rol);
+  const isProfesor = normalizedRole === 'profesor';
+  const isAsistente = normalizedRole === 'asistente';
+  const isLider = normalizedRole === 'lider';
+  const canModerateByRole = isProfesor || isAsistente || (isLider && canModerateTask);
+  const isAlumno = normalizedRole === 'alumno';
   // Alumnos that are assigned to the task can submit evidence; profs/admins/asistentes can view all
   const isAssignedAlumno = isAlumno && participants.some((p) => p.uid === currentUser?.uid);
-  const canAccessEvidence = isProfesorAdminOrAsistente || isAssignedAlumno;
+  const canAccessEvidence = canModerateByRole || isAssignedAlumno;
 
   // ── Real-time comments listener ──
   // Profesores/admins/asistentes: ven todos los comentarios de la tarea
@@ -200,7 +204,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     assertDb(db);
 
     let q;
-    if (isProfesorAdminOrAsistente) {
+    if (canModerateByRole) {
       q = query(
         collection(db, 'taskComments'),
         where('taskId', '==', task.id),
@@ -223,7 +227,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorAdminOrAsistente, currentUser]);
+  }, [task, open, canAccessEvidence, canModerateByRole, currentUser]);
 
   // ── Real-time documents listener ──
   // Profesores/admins: ven todos los documentos de la tarea
@@ -233,7 +237,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     assertDb(db);
 
     let q;
-    if (isProfesorAdminOrAsistente) {
+    if (canModerateByRole) {
       q = query(
         collection(db, 'taskDocuments'),
         where('taskId', '==', task.id),
@@ -256,7 +260,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorAdminOrAsistente, currentUser]);
+  }, [task, open, canAccessEvidence, canModerateByRole, currentUser]);
 
   // ── Add comment ──
   const handleAddComment = async () => {
@@ -422,13 +426,13 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             {canAccessEvidence && (
               <TabsTrigger value="documents" className="text-xs sm:text-sm">
                 <FileUp className="mr-1.5 h-4 w-4" />
-                {isProfesorOrAdmin ? 'Evidencias' : 'Mi Evidencia'}
+                {canModerateByRole ? 'Evidencias' : 'Mi Evidencia'}
               </TabsTrigger>
             )}
             {canAccessEvidence && (
               <TabsTrigger value="comments" className="text-xs sm:text-sm">
                 <MessageSquare className="mr-1.5 h-4 w-4" />
-                {isProfesorOrAdmin ? 'Comentarios' : 'Mis Notas'}
+                {canModerateByRole ? 'Comentarios' : 'Mis Notas'}
               </TabsTrigger>
             )}
           </TabsList>
@@ -503,7 +507,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
           {canAccessEvidence && <TabsContent value="documents" className="flex-1 min-h-0">
             <div className="flex flex-col h-[280px]">
               {/* Upload area — alumnos suben evidencia, profes también pueden subir */}
-              {currentUser && userProfile && (isAssignedAlumno || isProfesorOrAdmin) && (
+              {currentUser && userProfile && (isAssignedAlumno || canModerateByRole) && (
                 <div className="pb-3">
                   <input
                     ref={fileInputRef}
@@ -537,7 +541,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <FileText className="h-10 w-10 mb-2" />
                     <p className="text-sm">
-                      {isProfesorOrAdmin
+                      {canModerateByRole
                         ? 'Ningún alumno ha subido evidencia aún.'
                         : 'No has subido evidencia aún. ¡Sube tus documentos!'}
                     </p>
@@ -550,9 +554,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                         : new Date(d.createdAt as unknown as string);
                       const canDelete =
                         currentUser?.uid === d.userId ||
-                        userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin' ||
-                        userProfile?.rol === 'asistente';
+                        canModerateByRole;
 
                       return (
                         <div
@@ -616,7 +618,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessageSquare className="h-10 w-10 mb-2" />
                     <p className="text-sm">
-                      {isProfesorOrAdmin
+                      {canModerateByRole
                         ? 'Ningún alumno ha dejado comentarios aún.'
                         : 'No has dejado comentarios aún. ¡Describe tu avance!'}
                     </p>
@@ -629,9 +631,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                         : new Date(c.createdAt as unknown as string);
                       const canDelete =
                         currentUser?.uid === c.userId ||
-                        userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin' ||
-                        userProfile?.rol === 'asistente';
+                        canModerateByRole;
 
                       return (
                         <div key={c.id} className="rounded-lg border p-3 space-y-1">
@@ -672,10 +672,10 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               </ScrollArea>
 
               {/* Add comment — alumnos asignados y profes/admins */}
-              {currentUser && userProfile && (isAssignedAlumno || isProfesorOrAdmin) && (
+              {currentUser && userProfile && (isAssignedAlumno || canModerateByRole) && (
                 <div className="pt-3 flex gap-2">
                   <Textarea
-                    placeholder={isProfesorOrAdmin ? 'Escribe un comentario o retroalimentación...' : 'Describe tu avance o deja una nota...'}
+                    placeholder={canModerateByRole ? 'Escribe un comentario o retroalimentación...' : 'Describe tu avance o deja una nota...'}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     className="min-h-[40px] max-h-[80px] resize-none text-sm"

@@ -101,6 +101,7 @@ export interface FirestoreProject {
     category: string;
     coverImageUrl: string;
     blocks: ProjectBlock[];
+    leaderIds?: string[];
     createdBy: string; // User UID
     createdAt: Timestamp;
     updatedAt: Timestamp;

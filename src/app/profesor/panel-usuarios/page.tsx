@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, query, onSnapshot, doc, updateDoc, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserProfile } from '@/types/user';
+import { normalizeRole, canAccessUserPanel, canChangeUserRole, ASSISTANT_ASSIGNABLE_ROLES, PROFESSOR_ASSIGNABLE_ROLES } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { UserTasksDialog } from '@/components/user-tasks-dialog';
@@ -37,19 +38,16 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
 const ROLES: { value: UserProfile['rol']; label: string }[] = [
   { value: 'invitado', label: 'Invitado' },
   { value: 'alumno', label: 'Alumno' },
+  { value: 'lider', label: 'Líder' },
   { value: 'asistente', label: 'Asistente' },
   { value: 'profesor', label: 'Profesor' },
-  { value: 'admin', label: 'Admin' },
 ];
-
-// Roles que los asistentes pueden asignar a otros usuarios
-const ROLES_ASISTENTE_CAN_ASSIGN = ['invitado', 'alumno'];
 
 function rolBadgeVariant(rol: string) {
   switch (rol) {
-    case 'admin': return 'default' as const;
     case 'profesor': return 'default' as const;
     case 'asistente': return 'sky' as const;
+    case 'lider': return 'secondary' as const;
     case 'alumno': return 'secondary' as const;
     case 'invitado': return 'outline' as const;
     default: return 'outline' as const;
@@ -73,14 +71,14 @@ export default function PanelUsuariosPage() {
     if (!authLoading) {
       if (!currentUser) {
         router.push('/login?redirect=/profesor/panel-usuarios');
-      } else if (userProfile && userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
+      } else if (userProfile && !canAccessUserPanel(userProfile.rol)) {
         router.push('/unauthorized?page=panel-usuarios');
       }
     }
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
-    if (currentUser && (userProfile?.rol === 'profesor' || userProfile?.rol === 'admin' || userProfile?.rol === 'asistente')) {
+    if (currentUser && canAccessUserPanel(userProfile?.rol)) {
       assertDb(db);
       const usersCollection = collection(db, 'users');
       const q = query(usersCollection, orderBy('displayName', 'asc'));
@@ -103,26 +101,16 @@ export default function PanelUsuariosPage() {
   }, [currentUser, userProfile, toast]);
 
   const handleChangeRole = async (userId: string, newRole: UserProfile['rol'], oldRole: UserProfile['rol']) => {
-    // Asistentes solo pueden asignar ciertos roles
-    if (userProfile?.rol === 'asistente') {
-      // No pueden cambiar el rol de usuarios con roles protegidos
-      if (!ROLES_ASISTENTE_CAN_ASSIGN.includes(oldRole)) {
-        toast({
-          title: 'Permiso Denegado',
-          description: 'Solo puedes cambiar roles de usuarios Invitado o Alumno.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      // Solo pueden asignar roles permitidos
-      if (!ROLES_ASISTENTE_CAN_ASSIGN.includes(newRole)) {
-        toast({
-          title: 'Permiso Denegado',
-          description: 'Solo puedes cambiar roles a Invitado o Alumno.',
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (!canChangeUserRole(userProfile?.rol, oldRole, newRole)) {
+      const isAsistente = normalizeRole(userProfile?.rol) === 'asistente';
+      toast({
+        title: 'Permiso Denegado',
+        description: isAsistente
+          ? 'Como asistente solo puedes asignar roles de Líder, Alumno e Invitado.'
+          : 'No tienes permiso para cambiar este rol.',
+        variant: 'destructive',
+      });
+      return;
     }
 
     setUpdatingUserId(userId);
@@ -154,7 +142,7 @@ export default function PanelUsuariosPage() {
     );
   }
 
-  if (userProfile.rol !== 'profesor' && userProfile.rol !== 'admin' && userProfile.rol !== 'asistente') {
+  if (!canAccessUserPanel(userProfile.rol)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-20rem)] text-center">
         <ShieldAlert className="h-16 w-16 text-destructive mb-6" />
@@ -254,7 +242,7 @@ export default function PanelUsuariosPage() {
                         <div onClick={(e) => e.stopPropagation()}>
                         {u.uid === currentUser?.uid ? (
                           <span className="text-xs text-muted-foreground italic">Tu cuenta</span>
-                        ) : userProfile?.rol === 'asistente' && !ROLES_ASISTENTE_CAN_ASSIGN.includes(u.rol) ? (
+                        ) : normalizeRole(userProfile?.rol) === 'asistente' && !ASSISTANT_ASSIGNABLE_ROLES.includes(normalizeRole(u.rol)) ? (
                           <span className="text-xs text-muted-foreground italic">No puedes modificar</span>
                         ) : updatingUserId === u.uid ? (
                           <Loader2 className="h-4 w-4 animate-spin ml-auto" />
@@ -268,11 +256,10 @@ export default function PanelUsuariosPage() {
                             </SelectTrigger>
                             <SelectContent>
                               {ROLES.filter(r => {
-                                // Asistentes solo pueden asignar ciertos roles
-                                if (userProfile?.rol === 'asistente') {
-                                  return ROLES_ASISTENTE_CAN_ASSIGN.includes(r.value);
+                                if (normalizeRole(userProfile?.rol) === 'asistente') {
+                                  return ASSISTANT_ASSIGNABLE_ROLES.includes(normalizeRole(r.value));
                                 }
-                                return true;
+                                return PROFESSOR_ASSIGNABLE_ROLES.includes(normalizeRole(r.value));
                               }).map(r => (
                                 <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                               ))}
