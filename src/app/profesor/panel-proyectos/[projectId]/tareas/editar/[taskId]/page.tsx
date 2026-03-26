@@ -88,7 +88,7 @@ export default function EditarTareaPage() {
 
             const isLeaderForProject =
               normalizeRole(userProfile?.rol) === 'lider' &&
-              ((projectData.leaderIds || []).length === 0 || (projectData.leaderIds || []).includes(currentUser.uid));
+              (projectData.leaderIds || []).includes(currentUser.uid);
             const canManage = canManageTasksForProject(userProfile?.rol, isLeaderForProject);
             setHasProjectTaskAccess(canManage);
 

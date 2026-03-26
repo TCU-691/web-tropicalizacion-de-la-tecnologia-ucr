@@ -133,7 +133,7 @@ export default function PanelProyectosPage() {
   const isLeaderForProject = (project: FirestoreProject): boolean => {
     if (!currentUser) return false;
     const leaderIds = project.leaderIds || [];
-    return leaderIds.length === 0 || leaderIds.includes(currentUser.uid);
+    return leaderIds.includes(currentUser.uid);
   };
 
   const handleTaskClick = (task: FirestoreTask, project: FirestoreProject) => {

@@ -170,7 +170,7 @@ export function ProjectTasksSection({
 
   const isLeaderForProject =
     normalizeRole(userProfile.rol) === 'lider' &&
-    (projectLeaderIds.length === 0 || projectLeaderIds.includes(currentUser.uid));
+    projectLeaderIds.includes(currentUser.uid);
   const canAssign = canParticipateInTasks(userProfile.rol);
   const canModerateEvidence = canModerateTaskEvidence(userProfile.rol, isLeaderForProject);
 
