@@ -34,15 +34,16 @@ export function Navbar() {
     { href: '/proyectos', label: 'Proyectos' },
     { href: '/cursos-publicos', label: 'Cursos' },
     { href: '/giras', label: 'Giras' },
-    { href: '/articulos', label: 'Artículos' },
+    { href: '/anuncios', label: 'Anuncios' },
     { href: '/simulador-junior', label: 'Simulador' },
   ];
 
   const authenticatedNavLinks = [
     { href: '/subir-curso', label: 'Subir Curso', icon: UploadCloud },
-    { href: '/crear-articulo', label: 'Escribir Artículo', icon: PenSquare },
+    { href: '/crear-anuncio', label: 'Crear Anuncio', icon: PenSquare },
   ];
 
+  const isAlumno = userProfile?.rol === 'alumno';
   const canAccessProfessorPanels = canManageProjects(userProfile?.rol);
   const canAccessUserPanelSection = canAccessUserPanel(userProfile?.rol);
   const canAccessProjectPanelSection = canAccessProjectPanel(userProfile?.rol);
@@ -69,7 +70,7 @@ export function Navbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Mi Cuenta ({userProfile.rol})</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {!isAlumno && <DropdownMenuSeparator />}
              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
                   <Link href="/mis-tareas" className="flex items-center">
@@ -77,21 +78,25 @@ export function Navbar() {
                     Mis Tareas
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/subir-curso" className="flex items-center">
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    Subir Curso
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/crear-articulo" className="flex items-center">
-                    <PenSquare className="mr-2 h-4 w-4" />
-                    Escribir Artículo
-                  </Link>
-                </DropdownMenuItem>
+                {!isAlumno && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/subir-curso" className="flex items-center">
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        Subir Curso
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/crear-anuncio" className="flex items-center">
+                        <PenSquare className="mr-2 h-4 w-4" />
+                        Crear Anuncio
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
              </DropdownMenuGroup>
             
-            {canAccessProfessorPanels && (
+            {!isAlumno && canAccessProfessorPanels && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Paneles de Profesor</DropdownMenuLabel>
@@ -103,9 +108,9 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                      <DropdownMenuItem asChild>
-                      <Link href="/profesor/panel-articulos" className="flex items-center">
+                      <Link href="/profesor/panel-anuncios" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
-                        Panel de Artículos
+                        Panel de Anuncios
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -118,7 +123,7 @@ export function Navbar() {
               </>
             )}
 
-            {canAccessProjectPanelSection && (
+            {!isAlumno && canAccessProjectPanelSection && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Tareas y Proyectos</DropdownMenuLabel>
@@ -133,7 +138,7 @@ export function Navbar() {
               </>
             )}
             
-            {canAccessUserPanelSection && (
+            {!isAlumno && canAccessUserPanelSection && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Administración</DropdownMenuLabel>
@@ -185,7 +190,7 @@ export function Navbar() {
                 <ClipboardList className="mr-2 h-5 w-5" /> Mis Tareas
               </Link>
             </SheetClose>
-             {authenticatedNavLinks.map(link => (
+             {!isAlumno && authenticatedNavLinks.map(link => (
                 <SheetClose asChild key={link.href}>
                   <Link href={link.href} className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <link.icon className="mr-2 h-5 w-5" /> {link.label}
@@ -193,7 +198,7 @@ export function Navbar() {
                 </SheetClose>
             ))}
             
-             {canAccessProfessorPanels && (
+             {!isAlumno && canAccessProfessorPanels && (
               <>
                 <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Profesor</p>
                 <SheetClose asChild>
@@ -202,8 +207,8 @@ export function Navbar() {
                   </Link>
                 </SheetClose>
                  <SheetClose asChild>
-                  <Link href="/profesor/panel-articulos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
-                    <FileText className="mr-2 h-5 w-5" /> Panel de Artículos
+                  <Link href="/profesor/panel-anuncios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <FileText className="mr-2 h-5 w-5" /> Panel de Anuncios
                   </Link>
                 </SheetClose>
                 <SheetClose asChild>
@@ -219,7 +224,7 @@ export function Navbar() {
               </>
             )}
 
-            {canAccessProjectPanelSection && !canAccessProfessorPanels && (
+            {!isAlumno && canAccessProjectPanelSection && !canAccessProfessorPanels && (
               <>
                 <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Tareas y Proyectos</p>
                 <SheetClose asChild>
@@ -230,7 +235,7 @@ export function Navbar() {
               </>
             )}
 
-            {canAccessUserPanelSection && (
+            {!isAlumno && canAccessUserPanelSection && (
               <>
                 {!canAccessProfessorPanels && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
                 <SheetClose asChild>
