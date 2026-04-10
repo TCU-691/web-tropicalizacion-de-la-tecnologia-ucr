@@ -148,12 +148,15 @@ export function extractProjectImageUrls(project: any): string[] {
 /**
  * Extract image URLs from an article
  */
-export function extractArticleImageUrls(article: any): string[] {
-  const imageUrls: string[] = [];
+export function extractArticleImageUrls(article: any): Array<{ url: string; fileId?: string }> {
+  const imageUrls: Array<{ url: string; fileId?: string }> = [];
   
   // Add image (cover/main image)
   if (article.imageUrl) {
-    imageUrls.push(article.imageUrl);
+    imageUrls.push({
+      url: article.imageUrl,
+      fileId: article.imageFileId || undefined
+    });
   }
 
   return imageUrls;

@@ -105,6 +105,7 @@ export default function CrearAnuncioPage() {
         throw new Error('No se pudo obtener la URL de la imagen subida.');
       }
       const imageUrl = response.url;
+      const imageFileId = (response as any).fileId || null;
 
       const articleData: any = {
         title: data.title,
@@ -114,6 +115,10 @@ export default function CrearAnuncioPage() {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
+      
+      if (imageFileId) {
+        articleData.imageFileId = imageFileId;
+      }
       
       if (data.linkUrl) {
         articleData.linkUrl = data.linkUrl;

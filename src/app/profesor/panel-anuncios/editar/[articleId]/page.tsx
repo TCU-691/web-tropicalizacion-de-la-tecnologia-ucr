@@ -138,8 +138,21 @@ export default function EditAnuncioPage() {
 
     try {
       let finalImageUrl = initialArticleData.imageUrl;
+      let finalImageFileId = initialArticleData.imageFileId;
+      
       if (data.image?.[0]) {
-        finalImageUrl = await uploadImage(data.image[0], `articulos_imagenes/${currentUser.uid}`);
+        // Upload will be handled by the uploadImage function
+        const uploadResponse = await (async () => {
+          const authParams = await authenticator();
+          const response = await imageKitUpload({ file: data.image[0], fileName: data.image[0].name, ...authParams, folder: `articulos_imagenes/${currentUser.uid}`, useUniqueFileName: true });
+          if (!response.url) {
+            throw new Error('No se pudo obtener la URL de la imagen subida.');
+          }
+          return response;
+        })();
+        
+        finalImageUrl = uploadResponse.url;
+        finalImageFileId = (uploadResponse as any).fileId || null;
       }
 
       assertDb(db);
@@ -150,6 +163,10 @@ export default function EditAnuncioPage() {
         imageUrl: finalImageUrl,
         updatedAt: Timestamp.now(),
       };
+      
+      if (finalImageFileId) {
+        updateData.imageFileId = finalImageFileId;
+      }
       
       if (data.linkUrl) {
         updateData.linkUrl = data.linkUrl;
