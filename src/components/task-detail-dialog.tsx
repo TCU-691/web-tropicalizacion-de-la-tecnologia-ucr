@@ -16,6 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { upload as imageKitUpload } from '@imagekit/next';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 import {
   Dialog,
   DialogContent,
@@ -320,6 +321,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = f
         userName: userProfile.displayName || userProfile.email || 'Usuario',
         fileName: file.name,
         fileUrl: response.url,
+        fileId: (response as any).fileId || null, // Store the fileId for easier deletion later
         createdAt: Timestamp.now(),
       });
 
@@ -341,9 +343,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = f
   // ── Delete document ──
   const handleDeleteDocument = async (docId: string) => {
     try {
-      assertDb(db);
-      await deleteDoc(doc(db, 'taskDocuments', docId));
-      toast({ title: 'Documento eliminado' });
+      const result = await deleteDocumentWithImages('taskDocuments', docId);
+      if (result.success) {
+        toast({ title: 'Documento eliminado' });
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error('Error deleting document:', error);
       toast({ title: 'Error al eliminar documento', variant: 'destructive' });
