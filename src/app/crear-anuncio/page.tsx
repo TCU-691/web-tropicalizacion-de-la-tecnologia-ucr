@@ -106,15 +106,20 @@ export default function CrearAnuncioPage() {
       }
       const imageUrl = response.url;
 
-      await addDoc(collection(db, 'articles'), {
+      const articleData: any = {
         title: data.title,
         description: data.description,
         imageUrl,
-        linkUrl: data.linkUrl || undefined,
         authorId: currentUser.uid,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-      });
+      };
+      
+      if (data.linkUrl) {
+        articleData.linkUrl = data.linkUrl;
+      }
+      
+      await addDoc(collection(db, 'articles'), articleData);
 
       toast({
         title: '¡Anuncio Creado!',

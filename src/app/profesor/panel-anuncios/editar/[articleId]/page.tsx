@@ -144,13 +144,18 @@ export default function EditAnuncioPage() {
 
       assertDb(db);
       const articleRef = doc(db, 'articles', articleId);
-      await updateDoc(articleRef, {
+      const updateData: any = {
         title: data.title,
         description: data.description,
-        linkUrl: data.linkUrl || undefined,
         imageUrl: finalImageUrl,
         updatedAt: Timestamp.now(),
-      });
+      };
+      
+      if (data.linkUrl) {
+        updateData.linkUrl = data.linkUrl;
+      }
+      
+      await updateDoc(articleRef, updateData);
       toast({ title: '¡Anuncio Actualizado!', description: 'Los cambios han sido guardados.' });
       router.push('/profesor/panel-anuncios');
     } catch (error) {
