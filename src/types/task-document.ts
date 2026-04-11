@@ -7,5 +7,6 @@ export interface FirestoreTaskDocument {
   userName: string;
   fileName: string;
   fileUrl: string;
+  fileId?: string; // ImageKit fileId for easier deletion
   createdAt: Timestamp;
 }

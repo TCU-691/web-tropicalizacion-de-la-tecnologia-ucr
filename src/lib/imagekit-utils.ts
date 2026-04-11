@@ -21,6 +21,7 @@ function getImageKitInstance(): ImageKit {
 /**
  * Extract file ID from ImageKit URL
  * ImageKit URLs typically follow the pattern: https://ik.imagekit.io/your-id/path/filename_fileId.ext
+ * For server-side deletion, we can use the URL directly with getFileMetadata()
  */
 export function extractFileIdFromUrl(imageUrl: string): string | null {
   try {
@@ -48,9 +49,9 @@ export function extractFileIdFromUrl(imageUrl: string): string | null {
       return fileId;
     }
     
-    // Pattern 3: Try to extract from the full path
-    const fullPath = url.pathname.substring(1); // Remove leading slash
-    return fullPath;
+    // Pattern 3: Return the full URL to be used with getFileMetadata
+    // ImageKit API accepts URLs directly for metadata queries
+    return imageUrl;
     
   } catch (error) {
     console.error('Error extracting file ID from URL:', error);
@@ -61,17 +62,21 @@ export function extractFileIdFromUrl(imageUrl: string): string | null {
 /**
  * Delete a single image from ImageKit
  */
-export async function deleteImageFromImageKit(imageUrl: string): Promise<boolean> {
+export async function deleteImageFromImageKit(imageUrl: string, fileId?: string): Promise<boolean> {
   try {
-    const fileId = extractFileIdFromUrl(imageUrl);
-    if (!fileId) {
-      console.error('Could not extract file ID from URL:', imageUrl);
+    // If fileId is provided directly, use it (preferred)
+    let identifierToUse = fileId || extractFileIdFromUrl(imageUrl);
+    
+    if (!identifierToUse) {
+      console.error('Could not determine file ID for deletion:', imageUrl);
       return false;
     }
 
     const imagekitInstance = getImageKitInstance();
-    await imagekitInstance.deleteFile(fileId);
-    console.log(`Successfully deleted image from ImageKit: ${fileId}`);
+    
+    console.log(`Attempting to delete with fileId: ${identifierToUse}`);
+    await imagekitInstance.deleteFile(identifierToUse);
+    console.log(`Successfully deleted image from ImageKit: ${identifierToUse}`);
     return true;
   } catch (error) {
     console.error('Error deleting image from ImageKit:', error);
@@ -82,12 +87,18 @@ export async function deleteImageFromImageKit(imageUrl: string): Promise<boolean
 /**
  * Delete multiple images from ImageKit
  */
-export async function deleteImagesFromImageKit(imageUrls: string[]): Promise<{ success: number; failed: number }> {
+export async function deleteImagesFromImageKit(
+  imageUrls: string[] | Array<{ url: string; fileId?: string }>
+): Promise<{ success: number; failed: number }> {
   let success = 0;
   let failed = 0;
 
-  for (const imageUrl of imageUrls) {
-    const result = await deleteImageFromImageKit(imageUrl);
+  for (const item of imageUrls) {
+    // Handle both string URLs and objects with URL + fileId
+    const imageUrl = typeof item === 'string' ? item : item.url;
+    const fileId = typeof item === 'string' ? undefined : item.fileId;
+    
+    const result = await deleteImageFromImageKit(imageUrl, fileId);
     if (result) {
       success++;
     } else {
@@ -137,12 +148,15 @@ export function extractProjectImageUrls(project: any): string[] {
 /**
  * Extract image URLs from an article
  */
-export function extractArticleImageUrls(article: any): string[] {
-  const imageUrls: string[] = [];
+export function extractArticleImageUrls(article: any): Array<{ url: string; fileId?: string }> {
+  const imageUrls: Array<{ url: string; fileId?: string }> = [];
   
-  // Add cover image
-  if (article.coverImageUrl) {
-    imageUrls.push(article.coverImageUrl);
+  // Add image (cover/main image)
+  if (article.imageUrl) {
+    imageUrls.push({
+      url: article.imageUrl,
+      fileId: article.imageFileId || undefined
+    });
   }
 
   return imageUrls;
@@ -171,6 +185,23 @@ export function extractCourseImageUrls(course: any): string[] {
   // Add cover image
   if (course.imagenUrl) {
     imageUrls.push(course.imagenUrl);
+  }
+
+  return imageUrls;
+}
+
+/**
+ * Extract image URLs from task documents (evidences)
+ */
+export function extractTaskDocumentImageUrls(documents: any[]): string[] {
+  const imageUrls: string[] = [];
+  
+  if (Array.isArray(documents)) {
+    documents.forEach((doc: any) => {
+      if (doc.fileUrl) {
+        imageUrls.push(doc.fileUrl);
+      }
+    });
   }
 
   return imageUrls;

@@ -84,7 +84,7 @@ export async function generateMetadata({ params }: ArticlePageParams): Promise<M
   }
 
   return {
-    title: `${article.title} | Artículos | TCU TC-691`,
+    title: `${article.title} | Anuncios | TCU TC-691`,
     description: article.summary || 'Artículo del TCU TC-691',
     keywords: [
       article.category,
@@ -101,7 +101,7 @@ export async function generateMetadata({ params }: ArticlePageParams): Promise<M
       'impacto social',
     ].filter(Boolean),
     openGraph: {
-      title: `${article.title} | Artículos | TCU TC-691`,
+      title: `${article.title} | Anuncios | TCU TC-691`,
       description: article.summary,
       images: article.coverImageUrl ? [article.coverImageUrl] : [],
       siteName: 'TCU TC-691',
@@ -141,9 +141,9 @@ export default async function ArticlePage({ params }: ArticlePageParams) {
       <div className="flex flex-row-reverse max-w-6xl mx-auto py-8 gap-12">
         <main className="flex-1 min-w-0">
           <Button asChild variant="outline" className="mb-8 group print:hidden">
-            <Link href="/articulos">
+            <Link href="/anuncios">
               <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-              Todos los Artículos
+              Todos los Anuncios
             </Link>
           </Button>
 

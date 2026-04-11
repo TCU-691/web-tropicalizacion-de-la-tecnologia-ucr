@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, ShieldAlert, FolderKanban, PlusCircle, Search, ClipboardList, Clock, Users, CalendarDays, Edit, Trash2 } from 'lucide-react';
 import { ProjectAdminCard } from '@/components/project-admin-card';
 import { useToast } from '@/hooks/use-toast';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreProject } from '@/types/project';
 import type { FirestoreTask } from '@/types/task';
@@ -239,17 +239,30 @@ export default function PanelProyectosPage() {
       assertDb(db);
       const result = await deleteDocumentWithImages('projects', projectId);
       
-      // Also delete all tasks for this project
+      // Also delete all tasks and their documents for this project
       const projectTasks = tasksMap.get(projectId) || [];
-      await Promise.all(projectTasks.map(t => {
+      
+      for (const task of projectTasks) {
+        // Delete taskDocuments for this task first
+        const taskDocsQuery = query(
+          collection(db, 'taskDocuments'),
+          where('taskId', '==', task.id)
+        );
+        const taskDocsSnapshot = await getDocs(taskDocsQuery);
+        
+        for (const taskDocSnap of taskDocsSnapshot.docs) {
+          await deleteDocumentWithImages('taskDocuments', taskDocSnap.id);
+        }
+        
+        // Then delete the task itself
         assertDb(db);
-        return deleteDoc(doc(db, 'tasks', t.id));
-      }));
+        await deleteDoc(doc(db, 'tasks', task.id));
+      }
 
       if (result.success) {
         toast({
           title: "Proyecto Eliminado",
-          description: `El proyecto, sus tareas y sus imágenes asociadas han sido eliminados.`,
+          description: `El proyecto, sus tareas, documentos e imágenes asociadas han sido eliminados.`,
         });
       } else {
         throw new Error(result.message);
@@ -267,9 +280,23 @@ export default function PanelProyectosPage() {
   const handleDeleteTask = async (taskId: string) => {
     try {
       assertDb(db);
+      
+      // First, delete all taskDocuments associated with this task
+      const taskDocsQuery = query(
+        collection(db, 'taskDocuments'),
+        where('taskId', '==', taskId)
+      );
+      const taskDocsSnapshot = await getDocs(taskDocsQuery);
+      
+      // Delete each task document with its associated images
+      for (const taskDocSnap of taskDocsSnapshot.docs) {
+        await deleteDocumentWithImages('taskDocuments', taskDocSnap.id);
+      }
+      
+      // Then delete the task itself
       const docRef = doc(db, 'tasks', taskId);
       await deleteDoc(docRef);
-      toast({ title: "Tarea Eliminada", description: "La tarea ha sido eliminada exitosamente." });
+      toast({ title: "Tarea Eliminada", description: "La tarea y sus documentos han sido eliminados exitosamente." });
     } catch (error) {
       console.error("Error deleting task: ", error);
       toast({ title: "Error al eliminar tarea", variant: "destructive" });

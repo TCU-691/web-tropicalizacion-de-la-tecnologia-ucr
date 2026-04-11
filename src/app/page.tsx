@@ -8,11 +8,10 @@ import { collection, getDocs, query, where, orderBy, limit } from 'firebase/fire
 import { db } from '@/lib/firebase';
 import type { FirestoreProject } from '@/types/project';
 import type { FirestoreTour } from '@/types/tour';
-import type { FirestoreArticle } from '@/types/article';
 import { Badge } from '@/components/ui/badge';
 import { Image as ImageKitImage } from '@imagekit/next';
-import { ArticleCard } from '@/components/article-card';
 import { ContactSection } from '@/components/contact-section';
+import { FeaturedAnnouncements } from '@/components/featured-announcements';
 
 export const revalidate = 0;
 
@@ -64,33 +63,9 @@ async function getFeaturedTours(): Promise<FirestoreTour[]> {
     }
 }
 
-async function getFeaturedArticles(): Promise<FirestoreArticle[]> {
-  if (!db) return [];
-  try {
-    const articlesCollection = collection(db, 'articles');
-    const q = query(
-      articlesCollection,
-      where('status', '==', 'aprobado'),
-      orderBy('createdAt', 'desc'),
-      limit(3)
-    );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArticle));
-  } catch (error) {
-    console.error("Error fetching featured articles:", error);
-    if ((error as any).code === 'failed-precondition') {
-        console.error(
-          "Firestore query failed for featured articles. This likely means you're missing a composite index."
-        );
-    }
-    return [];
-  }
-}
-
 export default async function HomePage() {
   const featuredProjects = await getFeaturedProjects();
   const featuredTours = await getFeaturedTours();
-  const featuredArticles = await getFeaturedArticles();
 
   return (
     <div className="space-y-16 md:space-y-24">
@@ -149,6 +124,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Featured Announcements Section - ANUNCIOS (Solo para usuarios logueados) */}
+      <FeaturedAnnouncements />
+
       {/* Featured Projects Section */}
       {featuredProjects.length > 0 && (
         <section className="container mx-auto px-4">
@@ -165,25 +143,6 @@ export default async function HomePage() {
                   </Link>
               </Button>
           </div>
-        </section>
-      )}
-
-      {/* Featured Articles Section */}
-      {featuredArticles.length > 0 && (
-        <section className="container mx-auto px-4">
-            <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Artículos Recientes</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {featuredArticles.map(article => (
-                    <ArticleCard key={article.id} article={article} />
-                ))}
-            </div>
-            <div className="text-center mt-10">
-                <Button asChild variant="link" className="text-lg text-accent hover:text-accent/80">
-                    <Link href="/articulos">
-                        Ver todos los artículos <ArrowRight className="ml-2 h-5 w-5" />
-                    </Link>
-                </Button>
-            </div>
         </section>
       )}
 
