@@ -16,13 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Loader2, ArrowLeft, Image as ImageIcon, BookCopy, Puzzle, PlusCircle, Trash2, Youtube, Text, Link2, Images, Contact, Newspaper, FolderArchive, BookHeart } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Image as ImageIcon, BookCopy, Puzzle, PlusCircle, Trash2, Youtube, Text, Link2, Images, Contact, Newspaper, FolderArchive } from 'lucide-react';
 import { upload as imageKitUpload, ImageKitAbortError, ImageKitInvalidRequestError, ImageKitServerError, ImageKitUploadNetworkError } from "@imagekit/next";
-import { addDoc, collection, Timestamp, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { FirestoreCourse } from '@/types/course';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateSlug, isSlugUnique } from '@/lib/utils';
 
 
@@ -46,10 +43,8 @@ const paperSchema = z.object({ id: z.string().optional(), title: z.string().min(
 const papersBlockSchema = z.object({ id: z.string().optional(), type: z.literal('papers'), title: z.string().min(3, 'El título del bloque es obligatorio.').default(''), papers: z.array(paperSchema).min(1, 'Debes añadir al menos una publicación.'),});
 const resourceSchema = z.object({ id: z.string().optional(), title: z.string().min(3, 'El título del recurso es obligatorio.').default(''), description: z.string().optional().default(''), link: z.string().url('El enlace debe ser una URL válida.').default(''),});
 const resourcesBlockSchema = z.object({ id: z.string().optional(), type: z.literal('resources'), title: z.string().min(3, 'El título del bloque es obligatorio.').default(''), resources: z.array(resourceSchema).min(1, 'Debes añadir al menos un recurso.'),});
-const relatedCoursesBlockSchema = z.object({ id: z.string().optional(), type: z.literal('relatedCourses'), title: z.string().min(3, 'El título del bloque es obligatorio.').default(''), courseIds: z.array(z.string()).min(1, 'Debes seleccionar al menos un curso.'),});
-
 // Union of all block schemas
-const blockSchema = z.discriminatedUnion('type', [ textBlockSchema, videoBlockSchema, imageBlockSchema, linkBlockSchema, carouselBlockSchema, contactBlockSchema, papersBlockSchema, resourcesBlockSchema, relatedCoursesBlockSchema,]);
+const blockSchema = z.discriminatedUnion('type', [ textBlockSchema, videoBlockSchema, imageBlockSchema, linkBlockSchema, carouselBlockSchema, contactBlockSchema, papersBlockSchema, resourcesBlockSchema,]);
 
 // --- Main Project Schema ---
 const projectSchema = z.object({
@@ -328,9 +323,6 @@ function CrearProyectoClient() {
                          <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'resources', title: 'Recursos Adicionales', resources: [{ id: crypto.randomUUID(), title: '', description: '', link: ''}] })}>
                             <FolderArchive className="mr-2 h-4 w-4" /> Recursos
                         </Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBlock({ id: crypto.randomUUID(), type: 'relatedCourses', title: 'Cursos Relacionados', courseIds: [] })}>
-                            <BookHeart className="mr-2 h-4 w-4" /> Cursos
-                        </Button>
                     </div>
                  </div>
                  
@@ -401,14 +393,6 @@ function CrearProyectoClient() {
                             </div>
                         )}
                         
-                        {block.type === 'relatedCourses' && (
-                            <div className="space-y-4 pr-10">
-                                <h3 className="font-medium text-lg flex items-center"><BookHeart className="mr-2 h-5 w-5 text-muted-foreground"/>Bloque de Cursos Relacionados</h3>
-                                <FormField control={form.control} name={`blocks.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Título del Bloque</FormLabel><FormControl><Input placeholder="Ej: Cursos para Empezar" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <RelatedCoursesBlockSelector blockIndex={index} />
-                            </div>
-                        )}
-
                       </Card>
                     ))}
                     {blockFields.length === 0 && (
@@ -565,96 +549,6 @@ function ResourcesFieldArray({ blockIndex }: { blockIndex: number }) {
         <PlusCircle className="mr-2 h-4 w-4" /> Añadir Recurso
       </Button>
     </div>
-  );
-}
-
-function RelatedCoursesBlockSelector({ blockIndex }: { blockIndex: number }) {
-  const { control, formState: { errors } } = useFormContext<ProjectFormValues>();
-  const [courses, setCourses] = useState<FirestoreCourse[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        assertDb(db);
-        const coursesCol = collection(db, 'courses');
-        const q = query(coursesCol, where('estado', '==', 'aprobado'));
-        const querySnapshot = await getDocs(q);
-        const coursesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreCourse));
-        setCourses(coursesData);
-      } catch (error) {
-        console.error("Error fetching courses for selector:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCourses();
-  }, []);
-
-  if (loading) {
-    return <div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /><span>Cargando cursos...</span></div>;
-  }
-  
-  if(courses.length === 0) {
-      return <p className="text-sm text-muted-foreground">No hay cursos aprobados disponibles para seleccionar.</p>
-  }
-
-  const blockError = errors.blocks?.[blockIndex];
-  const courseIdsError = blockError && typeof blockError === 'object' && 'courseIds' in blockError ? (blockError as any).courseIds : undefined;
-
-  return (
-    <FormField
-      control={control}
-      name={`blocks.${blockIndex}.courseIds`}
-      render={({ field }) => (
-        <FormItem>
-          <div className="mb-4">
-            <FormLabel className="text-base">Seleccionar Cursos</FormLabel>
-            <FormDescription>
-              Elige los cursos que deseas mostrar en esta sección del proyecto.
-            </FormDescription>
-          </div>
-          <ScrollArea className="h-72 w-full rounded-md border p-4">
-            <div className="space-y-2">
-            {courses.map((course) => (
-                <FormField
-                key={course.id}
-                control={control}
-                name={`blocks.${blockIndex}.courseIds`}
-                render={({ field }) => {
-                    return (
-                    <FormItem
-                        key={course.id}
-                        className="flex flex-row items-start space-x-3 space-y-0"
-                    >
-                        <FormControl>
-                        <Checkbox
-                            checked={field.value?.includes(course.id)}
-                            onCheckedChange={(checked) => {
-                            return checked
-                                ? field.onChange([...(field.value || []), course.id])
-                                : field.onChange(
-                                    (field.value || []).filter(
-                                    (value) => value !== course.id
-                                    )
-                                );
-                            }}
-                        />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                         {course.titulo}
-                        </FormLabel>
-                    </FormItem>
-                    );
-                }}
-                />
-            ))}
-            </div>
-          </ScrollArea>
-           {courseIdsError && <FormMessage>{courseIdsError.message}</FormMessage>}
-        </FormItem>
-      )}
-    />
   );
 }
 
