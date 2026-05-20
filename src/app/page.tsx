@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ProjectCard } from '@/components/project-card';
-import { BookOpen, Users, ArrowRight, CalendarDays, Mail, MapPin, Gamepad2 } from 'lucide-react';
+import { Users, ArrowRight, CalendarDays, Mail, MapPin, Gamepad2 } from 'lucide-react';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { FirestoreProject } from '@/types/project';
@@ -109,9 +109,6 @@ export default async function HomePage() {
           <div className="flex flex-wrap justify-center items-center gap-4">
             <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
               <Link href="/proyectos">Ver Proyectos</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="shadow-md hover:shadow-lg transition-shadow">
-              <Link href="/cursos-publicos">Explorar Cursos</Link>
             </Button>
             <Button asChild variant="secondary" size="lg" className="shadow-md hover:shadow-lg transition-shadow">
                <Link href="/giras">Ver Giras</Link>
@@ -244,21 +241,6 @@ export default async function HomePage() {
       <section className="container mx-auto px-4">
         <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Explora Más</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-          <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
-            <CardHeader>
-              <BookOpen className="h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform" />
-              <CardTitle className="font-headline text-2xl">Cursos Públicos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>Accede a nuestros cursos y materiales educativos abiertos a todo público.</CardDescription>
-            </CardContent>
-            <CardFooter className="justify-center">
-              <Button asChild variant="default">
-                <Link href="/cursos-publicos">Ir a Cursos <ArrowRight className="ml-2 h-4 w-4" /></Link>
-              </Button>
-            </CardFooter>
-          </Card>
-          
           <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
             <CardHeader>
               <Users className="h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform" />

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { 
-  deleteImagesFromImageKit, 
-  extractProjectImageUrls, 
-  extractArticleImageUrls, 
-  extractTourImageUrls, 
-  extractCourseImageUrls 
+import {
+  deleteImagesFromImageKit,
+  extractProjectImageUrls,
+  extractArticleImageUrls,
+  extractTourImageUrls,
 } from '@/lib/imagekit-utils';
 
 export async function DELETE(request: NextRequest) {
@@ -53,9 +52,6 @@ export async function DELETE(request: NextRequest) {
         break;
       case 'tours':
         imageUrls = extractTourImageUrls(documentData);
-        break;
-      case 'courses':
-        imageUrls = extractCourseImageUrls(documentData);
         break;
       default:
         return NextResponse.json(
