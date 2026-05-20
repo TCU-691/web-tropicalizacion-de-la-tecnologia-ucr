@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Menu, TentTree, LogOut, UserCircle, ChevronDown, FolderKanban, Map, FileText, PenSquare, UsersRound, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { canAccessProjectPanel, canAccessUserPanel, canManageProjects } from '@/lib/roles';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function Navbar() {
@@ -32,7 +33,7 @@ export function Navbar() {
     { href: '/', label: 'Inicio' },
     { href: '/proyectos', label: 'Proyectos' },
     { href: '/giras', label: 'Giras' },
-    { href: '/articulos', label: 'Artículos' },
+    { href: '/anuncios', label: 'Anuncios' },
     { href: '/simulador-junior', label: 'Simulador' },
   ];
 
@@ -40,7 +41,10 @@ export function Navbar() {
     { href: '/crear-articulo', label: 'Escribir Artículo', icon: PenSquare },
   ];
 
-  const isProfessorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
+  const isAlumno = userProfile?.rol === 'alumno';
+  const canAccessProfessorPanels = canManageProjects(userProfile?.rol);
+  const canAccessUserPanelSection = canAccessUserPanel(userProfile?.rol);
+  const canAccessProjectPanelSection = canAccessProjectPanel(userProfile?.rol);
 
   const renderAuthSection = () => {
     if (loading) {
@@ -64,7 +68,7 @@ export function Navbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Mi Cuenta ({userProfile.rol})</DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {!isAlumno && <DropdownMenuSeparator />}
              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
                   <Link href="/mis-tareas" className="flex items-center">
@@ -80,7 +84,7 @@ export function Navbar() {
                 </DropdownMenuItem>
              </DropdownMenuGroup>
             
-            {isProfessorOrAdmin && (
+            {!isAlumno && canAccessProfessorPanels && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Paneles de Profesor</DropdownMenuLabel>
@@ -88,13 +92,7 @@ export function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/profesor/panel-articulos" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
-                        Panel de Artículos
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/profesor/panel-proyectos" className="flex items-center">
-                        <FolderKanban className="mr-2 h-4 w-4" />
-                        Panel de Proyectos
+                        Panel de Anuncios
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -103,13 +101,37 @@ export function Navbar() {
                         Panel de Giras
                       </Link >
                     </DropdownMenuItem>
+                 </DropdownMenuGroup>
+              </>
+            )}
+
+            {!isAlumno && canAccessProjectPanelSection && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Tareas y Proyectos</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profesor/panel-proyectos" className="flex items-center">
+                        <FolderKanban className="mr-2 h-4 w-4" />
+                        Panel de Proyectos
+                      </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </>
+            )}
+            
+            {!isAlumno && canAccessUserPanelSection && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Administración</DropdownMenuLabel>
+                <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
                       <Link href="/profesor/panel-usuarios" className="flex items-center">
                         <UsersRound className="mr-2 h-4 w-4" />
                         Panel de Usuarios
                       </Link>
                     </DropdownMenuItem>
-                 </DropdownMenuGroup>
+                </DropdownMenuGroup>
               </>
             )}
 
@@ -150,7 +172,7 @@ export function Navbar() {
                 <ClipboardList className="mr-2 h-5 w-5" /> Mis Tareas
               </Link>
             </SheetClose>
-             {authenticatedNavLinks.map(link => (
+             {!isAlumno && authenticatedNavLinks.map(link => (
                 <SheetClose asChild key={link.href}>
                   <Link href={link.href} className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <link.icon className="mr-2 h-5 w-5" /> {link.label}
@@ -158,7 +180,7 @@ export function Navbar() {
                 </SheetClose>
             ))}
             
-             {isProfessorOrAdmin && (
+             {!isAlumno && canAccessProfessorPanels && (
               <>
                 <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Profesor</p>
                 <SheetClose asChild>
@@ -176,6 +198,23 @@ export function Navbar() {
                     <Map className="mr-2 h-5 w-5" /> Panel de Giras
                   </Link>
                 </SheetClose>
+              </>
+            )}
+
+            {!isAlumno && canAccessProjectPanelSection && !canAccessProfessorPanels && (
+              <>
+                <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Tareas y Proyectos</p>
+                <SheetClose asChild>
+                  <Link href="/profesor/panel-proyectos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                    <FolderKanban className="mr-2 h-5 w-5" /> Panel de Proyectos
+                  </Link>
+                </SheetClose>
+              </>
+            )}
+
+            {!isAlumno && canAccessUserPanelSection && (
+              <>
+                {!canAccessProfessorPanels && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
                 <SheetClose asChild>
                   <Link href="/profesor/panel-usuarios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <UsersRound className="mr-2 h-5 w-5" /> Panel de Usuarios

@@ -1,20 +1,31 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/auth-context';
 import type { FirestoreArticle } from '@/types/article';
 import { ArticleCard } from '@/components/article-card';
-import { Newspaper, Loader2, Search } from 'lucide-react';
+import { Newspaper, Loader2, Search, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 export function ArticulosClient() {
+  const { currentUser, userProfile, loading: authLoading } = useAuth();
   const [articles, setArticles] = useState<FirestoreArticle[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<FirestoreArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    if (authLoading) return;
+    
+    if (!currentUser || userProfile?.rol === 'invitado') {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchArticles = async () => {
       if (!db) {
         setIsLoading(false);
@@ -22,36 +33,56 @@ export function ArticulosClient() {
       }
       try {
         const articlesCol = collection(db, 'articles');
-        const q = query(articlesCol, where('status', '==', 'aprobado'), orderBy('createdAt', 'desc'));
+        const q = query(articlesCol, orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const articlesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreArticle));
         setArticles(articlesData);
         setFilteredArticles(articlesData);
       } catch (error) {
-        console.error("Error fetching approved articles: ", error);
+        console.error("Error fetching articles: ", error);
       } finally {
         setIsLoading(false);
       }
     };
     fetchArticles();
-  }, []);
+  }, [currentUser, userProfile, authLoading]);
 
   useEffect(() => {
     const filtered = articles.filter(article =>
       article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.category.toLowerCase().includes(searchTerm.toLowerCase())
+      (article.description?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
     );
     setFilteredArticles(filtered);
   }, [searchTerm, articles]);
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!currentUser || userProfile?.rol === 'invitado') {
+    return (
+      <div className="container mx-auto px-4 py-20 text-center">
+        <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+        <h2 className="text-2xl font-semibold mb-2">Acceso Requerido</h2>
+        <p className="text-muted-foreground mb-6">Debes iniciar sesión para ver los anuncios.</p>
+        <Button asChild>
+          <Link href="/login?redirect=/anuncios">Iniciar Sesión</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-12">
       <section className="text-center py-10 bg-primary/5 rounded-lg shadow-sm">
         <Newspaper className="h-16 w-16 mx-auto mb-4 text-primary" />
-        <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">Artículos e Información</h1>
+        <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">Anuncios</h1>
         <p className="mt-3 text-lg md:text-xl text-foreground/70 max-w-3xl mx-auto">
-          Explora análisis, historias y reflexiones de los proyectos y la filosofía de nuestro TCU.
+          Mantente informado sobre novedades y cambios importantes.
         </p>
       </section>
 
@@ -60,11 +91,11 @@ export function ArticulosClient() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Buscar artículos por título, resumen o categoría..."
+            placeholder="Buscar anuncios..."
             className="pl-10 w-full text-base"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Buscar artículos"
+            aria-label="Buscar anuncios"
           />
         </div>
       </section>
@@ -83,9 +114,9 @@ export function ArticulosClient() {
         ) : (
           <div className="text-center py-16">
             <Search className="h-20 w-20 text-muted-foreground mx-auto mb-6" />
-            <h3 className="font-headline text-2xl text-muted-foreground">No se encontraron artículos</h3>
+            <h3 className="font-headline text-2xl text-muted-foreground">No se encontraron anuncios</h3>
             <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-              Intenta ajustar tu búsqueda o vuelve más tarde para ver nuevo contenido.
+              Intenta ajustar tu búsqueda o vuelve más tarde para ver nuevos anuncios.
             </p>
           </div>
         )}

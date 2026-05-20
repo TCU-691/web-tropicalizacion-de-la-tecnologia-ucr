@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   deleteImagesFromImageKit,
@@ -40,7 +40,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const documentData = { id: docSnap.id, ...docSnap.data() };
-    let imageUrls: string[] = [];
+    let imageUrls: string[] | Array<{ url: string; fileId?: string }> = [];
 
     // Extract image URLs based on collection type
     switch (collection) {

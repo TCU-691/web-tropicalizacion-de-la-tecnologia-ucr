@@ -16,6 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { upload as imageKitUpload } from '@imagekit/next';
+import { deleteDocumentWithImages } from '@/lib/delete-utils';
 import {
   Dialog,
   DialogContent,
@@ -43,10 +44,13 @@ import {
   FileText,
   Download,
   UserCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import type { FirestoreTaskComment } from '@/types/task-comment';
 import type { FirestoreTaskDocument } from '@/types/task-document';
 import type { UserProfile } from '@/types/user';
+import { normalizeRole } from '@/lib/roles';
 
 export interface TaskDetailData {
   id: string;
@@ -64,6 +68,7 @@ interface TaskDetailDialogProps {
   task: TaskDetailData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canModerateTask?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -94,13 +99,14 @@ const authenticator = async () => {
 };
 
 // ─── Component ────────────────────────────────────────────
-export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, open, onOpenChange, canModerateTask = false }: TaskDetailDialogProps) {
   const { currentUser, userProfile } = useAuth();
   const { toast } = useToast();
 
   // --- Participants ---
   const [participants, setParticipants] = useState<UserProfile[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [copiedEmails, setCopiedEmails] = useState(false);
 
   // --- Comments ---
   const [comments, setComments] = useState<FirestoreTaskComment[]>([]);
@@ -111,6 +117,26 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   const [documents, setDocuments] = useState<FirestoreTaskDocument[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Copy emails function ──
+  const handleCopyEmails = async () => {
+    const emails = participants.map(p => p.email).filter(Boolean);
+    if (emails.length === 0) {
+      toast({ title: 'No hay correos para copiar', variant: 'destructive' });
+      return;
+    }
+
+    const emailsText = emails.join('; ');
+    try {
+      await navigator.clipboard.writeText(emailsText);
+      setCopiedEmails(true);
+      toast({ title: `${emails.length} correo(s) copiado(s)` });
+      setTimeout(() => setCopiedEmails(false), 2000);
+    } catch (error) {
+      console.error('Error copying emails:', error);
+      toast({ title: 'Error al copiar correos', variant: 'destructive' });
+    }
+  };
 
   // Reset state when task changes
   useEffect(() => {
@@ -161,21 +187,25 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     fetchParticipants();
   }, [task, open]);
 
-  const isProfesorOrAdmin = userProfile?.rol === 'profesor' || userProfile?.rol === 'admin';
-  const isAlumno = userProfile?.rol === 'alumno';
-  // Alumnos that are assigned to the task can submit evidence; profs/admins can view all
+  const normalizedRole = normalizeRole(userProfile?.rol);
+  const isProfesor = normalizedRole === 'profesor';
+  const isAsistente = normalizedRole === 'asistente';
+  const isLider = normalizedRole === 'lider';
+  const canModerateByRole = isProfesor || isAsistente || (isLider && canModerateTask);
+  const isAlumno = normalizedRole === 'alumno';
+  // Alumnos that are assigned to the task can submit evidence; profs/admins/asistentes can view all
   const isAssignedAlumno = isAlumno && participants.some((p) => p.uid === currentUser?.uid);
-  const canAccessEvidence = isProfesorOrAdmin || isAssignedAlumno;
+  const canAccessEvidence = canModerateByRole || isAssignedAlumno;
 
   // ── Real-time comments listener ──
-  // Profesores/admins: ven todos los comentarios de la tarea
+  // Profesores/admins/asistentes: ven todos los comentarios de la tarea
   // Alumnos asignados: solo ven sus propios comentarios
   useEffect(() => {
     if (!task || !open || !db || !canAccessEvidence || !currentUser) return;
     assertDb(db);
 
     let q;
-    if (isProfesorOrAdmin) {
+    if (canModerateByRole) {
       q = query(
         collection(db, 'taskComments'),
         where('taskId', '==', task.id),
@@ -198,31 +228,21 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorOrAdmin, currentUser]);
+  }, [task, open, canAccessEvidence, canModerateByRole, currentUser]);
 
   // ── Real-time documents listener ──
   // Profesores/admins: ven todos los documentos de la tarea
-  // Alumnos asignados: solo ven sus propios documentos
+  // Alumnos asignados: ven todos los documentos de la tarea (no solo los suyos)
   useEffect(() => {
     if (!task || !open || !db || !canAccessEvidence || !currentUser) return;
     assertDb(db);
 
-    let q;
-    if (isProfesorOrAdmin) {
-      q = query(
-        collection(db, 'taskDocuments'),
-        where('taskId', '==', task.id),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      // Alumno: solo sus propios documentos
-      q = query(
-        collection(db, 'taskDocuments'),
-        where('taskId', '==', task.id),
-        where('userId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      );
-    }
+    // Todos (profesores, admins, asistentes y alumnos) ven todos los documentos
+    const q = query(
+      collection(db, 'taskDocuments'),
+      where('taskId', '==', task.id),
+      orderBy('createdAt', 'desc')
+    );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       setDocuments(
@@ -231,7 +251,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     });
 
     return () => unsubscribe();
-  }, [task, open, canAccessEvidence, isProfesorOrAdmin, currentUser]);
+  }, [task, open, canAccessEvidence, currentUser]);
 
   // ── Add comment ──
   const handleAddComment = async () => {
@@ -301,6 +321,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
         userName: userProfile.displayName || userProfile.email || 'Usuario',
         fileName: file.name,
         fileUrl: response.url,
+        fileId: (response as any).fileId || null, // Store the fileId for easier deletion later
         createdAt: Timestamp.now(),
       });
 
@@ -322,9 +343,12 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   // ── Delete document ──
   const handleDeleteDocument = async (docId: string) => {
     try {
-      assertDb(db);
-      await deleteDoc(doc(db, 'taskDocuments', docId));
-      toast({ title: 'Documento eliminado' });
+      const result = await deleteDocumentWithImages('taskDocuments', docId);
+      if (result.success) {
+        toast({ title: 'Documento eliminado' });
+      } else {
+        throw new Error(result.message);
+      }
     } catch (error) {
       console.error('Error deleting document:', error);
       toast({ title: 'Error al eliminar documento', variant: 'destructive' });
@@ -397,19 +421,42 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
             {canAccessEvidence && (
               <TabsTrigger value="documents" className="text-xs sm:text-sm">
                 <FileUp className="mr-1.5 h-4 w-4" />
-                {isProfesorOrAdmin ? 'Evidencias' : 'Mi Evidencia'}
+                {canModerateByRole ? 'Evidencias' : 'Mi Evidencia'}
               </TabsTrigger>
             )}
             {canAccessEvidence && (
               <TabsTrigger value="comments" className="text-xs sm:text-sm">
                 <MessageSquare className="mr-1.5 h-4 w-4" />
-                {isProfesorOrAdmin ? 'Comentarios' : 'Mis Notas'}
+                {canModerateByRole ? 'Comentarios' : 'Mis Notas'}
               </TabsTrigger>
             )}
           </TabsList>
 
           {/* ── Participants Tab ── */}
           <TabsContent value="participants" className="flex-1 min-h-0">
+          <div className="flex flex-col h-[280px] gap-3">
+            {/* Copy button */}
+            {!loadingParticipants && participants.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyEmails}
+                className="w-full"
+              >
+                {copiedEmails ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Correos copiados
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar correos ({participants.length})
+                  </>
+                )}
+              </Button>
+            )}
+
             <ScrollArea className="h-[280px] pr-3">
               {loadingParticipants ? (
                 <div className="flex items-center justify-center py-8">
@@ -448,13 +495,14 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                 </div>
               )}
             </ScrollArea>
-          </TabsContent>
+          </div>
+        </TabsContent>
 
           {/* ── Documents / Evidence Tab ── */}
           {canAccessEvidence && <TabsContent value="documents" className="flex-1 min-h-0">
             <div className="flex flex-col h-[280px]">
               {/* Upload area — alumnos suben evidencia, profes también pueden subir */}
-              {currentUser && userProfile && (isAssignedAlumno || isProfesorOrAdmin) && (
+              {currentUser && userProfile && (isAssignedAlumno || canModerateByRole) && (
                 <div className="pb-3">
                   <input
                     ref={fileInputRef}
@@ -488,7 +536,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <FileText className="h-10 w-10 mb-2" />
                     <p className="text-sm">
-                      {isProfesorOrAdmin
+                      {canModerateByRole
                         ? 'Ningún alumno ha subido evidencia aún.'
                         : 'No has subido evidencia aún. ¡Sube tus documentos!'}
                     </p>
@@ -501,8 +549,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                         : new Date(d.createdAt as unknown as string);
                       const canDelete =
                         currentUser?.uid === d.userId ||
-                        userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin';
+                        canModerateByRole;
 
                       return (
                         <div
@@ -566,7 +613,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <MessageSquare className="h-10 w-10 mb-2" />
                     <p className="text-sm">
-                      {isProfesorOrAdmin
+                      {canModerateByRole
                         ? 'Ningún alumno ha dejado comentarios aún.'
                         : 'No has dejado comentarios aún. ¡Describe tu avance!'}
                     </p>
@@ -579,8 +626,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                         : new Date(c.createdAt as unknown as string);
                       const canDelete =
                         currentUser?.uid === c.userId ||
-                        userProfile?.rol === 'profesor' ||
-                        userProfile?.rol === 'admin';
+                        canModerateByRole;
 
                       return (
                         <div key={c.id} className="rounded-lg border p-3 space-y-1">
@@ -621,10 +667,10 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               </ScrollArea>
 
               {/* Add comment — alumnos asignados y profes/admins */}
-              {currentUser && userProfile && (isAssignedAlumno || isProfesorOrAdmin) && (
+              {currentUser && userProfile && (isAssignedAlumno || canModerateByRole) && (
                 <div className="pt-3 flex gap-2">
                   <Textarea
-                    placeholder={isProfesorOrAdmin ? 'Escribe un comentario o retroalimentación...' : 'Describe tu avance o deja una nota...'}
+                    placeholder={canModerateByRole ? 'Escribe un comentario o retroalimentación...' : 'Describe tu avance o deja una nota...'}
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     className="min-h-[40px] max-h-[80px] resize-none text-sm"
