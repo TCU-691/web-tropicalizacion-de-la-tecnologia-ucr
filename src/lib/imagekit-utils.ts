@@ -162,16 +162,3 @@ export function extractTourImageUrls(tour: any): string[] {
   return imageUrls;
 }
 
-/**
- * Extract image URLs from a course
- */
-export function extractCourseImageUrls(course: any): string[] {
-  const imageUrls: string[] = [];
-  
-  // Add cover image
-  if (course.imagenUrl) {
-    imageUrls.push(course.imagenUrl);
-  }
-
-  return imageUrls;
-}

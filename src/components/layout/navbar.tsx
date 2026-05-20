@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
-import { Menu, TentTree, LogOut, UploadCloud, UserCircle, ChevronDown, FolderKanban, Map, FileText, BookCheck, PenSquare, UsersRound, ClipboardList } from 'lucide-react';
+import { Menu, TentTree, LogOut, UserCircle, ChevronDown, FolderKanban, Map, FileText, PenSquare, UsersRound, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -31,14 +31,12 @@ export function Navbar() {
   const navLinksBase = [
     { href: '/', label: 'Inicio' },
     { href: '/proyectos', label: 'Proyectos' },
-    { href: '/cursos-publicos', label: 'Cursos' },
     { href: '/giras', label: 'Giras' },
     { href: '/articulos', label: 'Artículos' },
     { href: '/simulador-junior', label: 'Simulador' },
   ];
 
   const authenticatedNavLinks = [
-    { href: '/subir-curso', label: 'Subir Curso', icon: UploadCloud },
     { href: '/crear-articulo', label: 'Escribir Artículo', icon: PenSquare },
   ];
 
@@ -75,12 +73,6 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/subir-curso" className="flex items-center">
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    Subir Curso
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link href="/crear-articulo" className="flex items-center">
                     <PenSquare className="mr-2 h-4 w-4" />
                     Escribir Artículo
@@ -94,12 +86,6 @@ export function Navbar() {
                 <DropdownMenuLabel>Paneles de Profesor</DropdownMenuLabel>
                  <DropdownMenuGroup>
                     <DropdownMenuItem asChild>
-                      <Link href="/dashboard-aprobaciones" className="flex items-center">
-                        <BookCheck className="mr-2 h-4 w-4" />
-                        Panel de Cursos
-                      </Link>
-                    </DropdownMenuItem>
-                     <DropdownMenuItem asChild>
                       <Link href="/profesor/panel-articulos" className="flex items-center">
                         <FileText className="mr-2 h-4 w-4" />
                         Panel de Artículos
@@ -176,11 +162,6 @@ export function Navbar() {
               <>
                 <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Profesor</p>
                 <SheetClose asChild>
-                  <Link href="/dashboard-aprobaciones" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
-                    <BookCheck className="mr-2 h-5 w-5" /> Panel de Cursos
-                  </Link>
-                </SheetClose>
-                 <SheetClose asChild>
                   <Link href="/profesor/panel-articulos" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <FileText className="mr-2 h-5 w-5" /> Panel de Artículos
                   </Link>

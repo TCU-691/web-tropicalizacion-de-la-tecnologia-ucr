@@ -74,22 +74,16 @@ export interface ResourcesBlock extends BlockBase {
     resources: Resource[];
 }
 
-export interface RelatedCoursesBlock extends BlockBase {
-    type: 'relatedCourses';
-    courseIds: string[];
-}
-
 // Union type for all possible blocks
-export type ProjectBlock = 
-    | TextBlock 
-    | VideoBlock 
-    | ImageBlock 
+export type ProjectBlock =
+    | TextBlock
+    | VideoBlock
+    | ImageBlock
     | LinkBlock
     | CarouselBlock
     | ContactBlock
     | PapersBlock
-    | ResourcesBlock
-    | RelatedCoursesBlock;
+    | ResourcesBlock;
 
 // The main type for a project document in Firestore
 export interface FirestoreProject {
