@@ -199,7 +199,7 @@ export default async function HomePage() {
       {/* Quick Links Section */}
       <section className="container mx-auto px-4">
         <h2 className="font-headline text-3xl md:text-4xl font-semibold text-primary text-center mb-10">Explora Más</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-3xl mx-auto">
           <Card className="text-center p-6 hover:shadow-xl transition-shadow duration-300 group">
             <CardHeader>
               <Users className="h-12 w-12 mx-auto mb-4 text-accent group-hover:scale-110 transition-transform" />
