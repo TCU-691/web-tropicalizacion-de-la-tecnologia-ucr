@@ -31,7 +31,7 @@ const tourSchema = z.object({
   location: z.string().min(3, { message: 'La ubicación es obligatoria.' }),
   date: z.string().min(1, { message: 'La fecha es obligatoria.' }),
   status: z.enum(['Próximamente', 'Realizada', 'Cancelada'], { required_error: 'Por favor selecciona un estado.' }),
-  dateISO: z.string().min(1, { message: 'La fecha ISO es obligatoria.' }),
+  dateISO: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'La fecha debe estar en formato YYYY-MM-DD.' }),
   imageUrl: z
     .custom<FileList>()
     .refine((files) => files?.length === 1, "La imagen de portada es obligatoria.")

@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       if (tour.dateISO !== targetDate) continue;
 
       // Skip if reminder already sent
-      const sentRef = doc(db, 'remindersSent', `${tourDoc.id}_7d`);
+      const sentRef = doc(db, 'remindersSent', `${tourDoc.id}_7d_${tour.dateISO}`);
       const sentSnap = await getDoc(sentRef);
       if (sentSnap.exists()) continue;
 
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
         tourId: tourDoc.id,
         type: 'reminder_7d',
         sentAt: Timestamp.now(),
+        dateISO: tour.dateISO,
       });
 
       sent++;
