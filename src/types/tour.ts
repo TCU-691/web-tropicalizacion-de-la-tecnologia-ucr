@@ -5,6 +5,7 @@ export interface FirestoreTour {
   slug: string;
   title: string;
   date: string; // Storing date as a string for simplicity, can be ISO string for proper sorting
+  dateISO?: string;
   status: 'Próximamente' | 'Realizada' | 'Cancelada';
   location: string;
   description: string;
