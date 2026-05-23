@@ -5,7 +5,6 @@ export interface FirestoreTour {
   slug: string;
   title: string;
   date: string; // Storing date as a string for simplicity, can be ISO string for proper sorting
-  dateISO?: string;
   status: 'Próximamente' | 'Realizada' | 'Cancelada';
   location: string;
   description: string;
@@ -13,4 +12,5 @@ export interface FirestoreTour {
   createdBy: string; // User UID
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  dateISO?: string; // ISO 8601 date (YYYY-MM-DD) for cron-based reminder calculations
 }
