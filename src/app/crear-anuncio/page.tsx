@@ -133,6 +133,7 @@ export default function CrearAnuncioPage() {
           id: docRef.id,
           title: data.title,
           description: data.description,
+          imageUrl: imageUrl,
         }),
       }).catch(console.error);
 

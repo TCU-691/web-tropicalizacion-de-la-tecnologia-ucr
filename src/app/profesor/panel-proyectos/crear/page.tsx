@@ -219,6 +219,7 @@ function CrearProyectoClient() {
           title: data.name,
           description: data.description,
           slug: slug,
+          imageUrl: coverImageUrl,
         }),
       }).catch(console.error);
 

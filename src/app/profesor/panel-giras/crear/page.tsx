@@ -140,6 +140,7 @@ export default function CrearGiraPage() {
           slug: slug,
           date: data.date,
           location: data.location,
+          imageUrl: coverImageUrl,
         }),
       }).catch(console.error);
 

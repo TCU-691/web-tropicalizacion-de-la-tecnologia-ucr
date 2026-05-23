@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         slug: tour.slug,
         date: tour.date,
         location: tour.location,
+        imageUrl: tour.imageUrl,
       });
 
       // Mark as sent to prevent duplicates
