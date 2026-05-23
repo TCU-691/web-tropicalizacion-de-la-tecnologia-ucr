@@ -9,6 +9,9 @@ export async function postToTeams(payload: NotifyPayload): Promise<void> {
 
   // Build the page URL based on content type
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+  if (!siteUrl) {
+    console.warn('[notifications] NEXT_PUBLIC_SITE_URL is not set — Teams card links will be broken');
+  }
   let pageUrl: string;
 
   switch (payload.type) {
