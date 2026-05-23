@@ -31,6 +31,7 @@ const tourSchema = z.object({
   location: z.string().min(3, { message: 'La ubicación es obligatoria.' }),
   date: z.string().min(1, { message: 'La fecha es obligatoria.' }),
   status: z.enum(['Próximamente', 'Realizada', 'Cancelada'], { required_error: 'Por favor selecciona un estado.' }),
+  dateISO: z.string().min(1, { message: 'La fecha ISO es obligatoria.' }),
   imageUrl: z
     .custom<FileList>()
     .refine((files) => files?.length === 1, "La imagen de portada es obligatoria.")
@@ -88,6 +89,7 @@ export default function CrearGiraPage() {
       location: '',
       date: '',
       status: undefined,
+      dateISO: '',
       imageUrl: undefined,
     },
   });
@@ -126,7 +128,20 @@ export default function CrearGiraPage() {
       };
       
       assertDb(db);
-      await addDoc(collection(db, 'tours'), tourDataToSave);
+      const docRef = await addDoc(collection(db, 'tours'), { ...tourDataToSave, dateISO: data.dateISO });
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'tour',
+          id: docRef.id,
+          title: data.title,
+          description: data.description,
+          slug: slug,
+          date: data.date,
+          location: data.location,
+        }),
+      }).catch(console.error);
 
       toast({
         title: "Gira Creada",
@@ -187,6 +202,7 @@ export default function CrearGiraPage() {
                     <CardContent className="space-y-8">
                         <FormField control={form.control} name="title" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Info className="mr-2 h-4 w-4"/>Título de la Gira</FormLabel><FormControl><Input placeholder="Ej: Visita a CoopeSoliDar R.L." {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="date" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Calendar className="mr-2 h-4 w-4"/>Fecha</FormLabel><FormControl><Input placeholder="Ej: 25 de Octubre, 2024" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="dateISO" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Calendar className="mr-2 h-4 w-4"/>Fecha ISO (YYYY-MM-DD)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormDescription>Formato de fecha para recordatorios automáticos.</FormDescription><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="location" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4"/>Ubicación</FormLabel><FormControl><Input placeholder="Ej: Comunidad de CoopeSoliDar, Puntarenas" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="status" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Flag className="mr-2 h-4 w-4"/>Estado</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecciona un estado" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Próximamente">Próximamente</SelectItem><SelectItem value="Realizada">Realizada</SelectItem><SelectItem value="Cancelada">Cancelada</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                         <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Describe los detalles, objetivos y actividades de la gira..." {...field} rows={6} /></FormControl><FormMessage /></FormItem> )} />

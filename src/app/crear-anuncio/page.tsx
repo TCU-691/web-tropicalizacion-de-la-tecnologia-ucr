@@ -124,7 +124,17 @@ export default function CrearAnuncioPage() {
         articleData.linkUrl = data.linkUrl;
       }
       
-      await addDoc(collection(db, 'articles'), articleData);
+      const docRef = await addDoc(collection(db, 'articles'), articleData);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'article',
+          id: docRef.id,
+          title: data.title,
+          description: data.description,
+        }),
+      }).catch(console.error);
 
       toast({
         title: '¡Anuncio Creado!',
