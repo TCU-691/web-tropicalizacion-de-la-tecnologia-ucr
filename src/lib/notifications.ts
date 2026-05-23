@@ -29,6 +29,21 @@ export async function postToTeams(payload: NotifyPayload): Promise<void> {
       return _exhaustiveCheck;
   }
 
+  // Build the body array dynamically
+  const body: object[] = [];
+  if (payload.imageUrl) {
+    body.push({
+      type: 'Image',
+      url: payload.imageUrl,
+      size: 'Large',
+      horizontalAlignment: 'Center',
+    });
+  }
+  body.push(
+    { type: 'TextBlock', size: 'Medium', weight: 'Bolder', text: payload.title },
+    { type: 'TextBlock', wrap: true, text: payload.description }
+  );
+
   // Build the Teams Adaptive Card
   const card = {
     type: 'message',
@@ -39,19 +54,7 @@ export async function postToTeams(payload: NotifyPayload): Promise<void> {
           $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
           type: 'AdaptiveCard',
           version: '1.2',
-          body: [
-            {
-              type: 'TextBlock',
-              size: 'Medium',
-              weight: 'Bolder',
-              text: payload.title,
-            },
-            {
-              type: 'TextBlock',
-              wrap: true,
-              text: payload.description,
-            },
-          ],
+          body,
           actions: [
             {
               type: 'Action.OpenUrl',
