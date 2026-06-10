@@ -12,4 +12,5 @@ export interface FirestoreTour {
   createdBy: string; // User UID
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  dateISO?: string; // ISO 8601 date (YYYY-MM-DD) for cron-based reminder calculations
 }

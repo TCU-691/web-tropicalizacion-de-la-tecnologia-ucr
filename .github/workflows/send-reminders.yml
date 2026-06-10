@@ -1,0 +1,19 @@
+name: Send Tour Reminders to Teams
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 8:00 AM Costa Rica (UTC-6) = 14:00 UTC
+  workflow_dispatch:  # Allow manual runs for testing
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder endpoint
+        run: |
+          curl -X POST "${{ secrets.SITE_URL }}/api/send-reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail \
+            --silent \
+            --show-error

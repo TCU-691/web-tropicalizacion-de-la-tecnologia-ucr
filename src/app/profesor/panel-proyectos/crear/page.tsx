@@ -209,7 +209,19 @@ function CrearProyectoClient() {
         updatedAt: Timestamp.now(),
       };
       
-      await addDoc(collection(db, 'projects'), projectDataToSave);
+      const docRef = await addDoc(collection(db, 'projects'), projectDataToSave);
+      fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'project',
+          id: docRef.id,
+          title: data.name,
+          description: data.description,
+          slug: slug,
+          imageUrl: coverImageUrl,
+        }),
+      }).catch(console.error);
 
       toast({
         title: "Proyecto Creado",
