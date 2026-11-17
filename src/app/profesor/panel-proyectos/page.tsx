@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ShieldAlert, FolderKanban, PlusCircle, Search, ClipboardList, Clock, Users, CalendarDays, Edit, Trash2 } from 'lucide-react';
+import { Loader2, ShieldAlert, FolderKanban, PlusCircle, Search, ClipboardList, Clock, Users, CalendarDays, Copy, Edit, Trash2 } from 'lucide-react';
 import { ProjectAdminCard } from '@/components/project-admin-card';
 import { useToast } from '@/hooks/use-toast';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, where, getDocs } from 'firebase/firestore';
@@ -41,7 +41,7 @@ function assertDb(db: typeof import('@/lib/firebase').db): asserts db is Exclude
   if (!db) throw new Error('Firestore no está inicializado');
 }
 
-function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: FirestoreTask; projectId: string; onDelete: (id: string) => void; onClickDetail: (task: FirestoreTask) => void }) {
+function TaskAdminCard({ task, projectId, canDuplicate, onDelete, onClickDetail }: { task: FirestoreTask; projectId: string; canDuplicate: boolean; onDelete: (id: string) => void; onClickDetail: (task: FirestoreTask) => void }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const endDate = task.endDate?.toDate ? task.endDate.toDate() : new Date(task.endDate as any);
@@ -76,13 +76,21 @@ function TaskAdminCard({ task, projectId, onDelete, onClickDetail }: { task: Fir
           </span>
         </div>
         <Progress value={slotsPercentage} className="h-1.5" />
-        <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
           <Button asChild variant="outline" size="sm" className="flex-1">
             <Link href={`/profesor/panel-proyectos/${projectId}/tareas/editar/${task.id}`}>
               <Edit className="mr-1 h-3 w-3" />
               <span className="text-xs">Editar</span>
             </Link>
           </Button>
+          {canDuplicate && (
+            <Button asChild variant="outline" size="sm" className="flex-1">
+              <Link href={`/profesor/panel-proyectos/${projectId}/tareas/crear/${task.id}`}>
+                <Copy className="mr-1 h-3 w-3" />
+                <span className="text-xs">Duplicar tarea</span>
+              </Link>
+            </Button>
+          )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="flex-1">
@@ -455,6 +463,7 @@ export default function PanelProyectosPage() {
                                           key={task.id}
                                           task={task}
                                           projectId={project.id}
+                                          canDuplicate={canManageProjectTasks}
                                           onDelete={handleDeleteTask}
                                           onClickDetail={(clickedTask) => handleTaskClick(clickedTask, project)}
                                         />

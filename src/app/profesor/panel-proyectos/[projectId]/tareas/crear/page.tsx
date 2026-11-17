@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Save, Loader2, ArrowLeft, ClipboardList } from 'lucide-react';
 import { addDoc, collection, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TASK_STATUSES } from '@/types/task';
+import { TASK_STATUSES, type FirestoreTask } from '@/types/task';
 import type { FirestoreProject } from '@/types/project';
 import { canManageTasksForProject, normalizeRole } from '@/lib/roles';
 
@@ -41,9 +41,11 @@ export default function CrearTareaPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.projectId as string;
+  const sourceTaskId = params.sourceTaskId as string | undefined;
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInProgress = useRef(false);
   const [projectName, setProjectName] = useState<string>('');
   const [loadingProject, setLoadingProject] = useState(true);
   const [hasProjectTaskAccess, setHasProjectTaskAccess] = useState(false);
@@ -60,6 +62,8 @@ export default function CrearTareaPage() {
     },
   });
 
+  const { reset } = form;
+
   useEffect(() => {
     if (!authLoading) {
       if (!currentUser) {
@@ -69,11 +73,16 @@ export default function CrearTareaPage() {
   }, [currentUser, userProfile, authLoading, router]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (projectId && currentUser && userProfile) {
       const fetchProject = async () => {
+        setLoadingProject(true);
+        setHasProjectTaskAccess(false);
         try {
           assertDb(db);
           const projectDoc = await getDoc(doc(db, 'projects', projectId));
+          if (cancelled) return;
           if (projectDoc.exists()) {
             const projectData = projectDoc.data() as FirestoreProject;
             setProjectName(projectData.name);
@@ -82,29 +91,64 @@ export default function CrearTareaPage() {
               normalizeRole(userProfile?.rol) === 'lider' &&
               (projectData.leaderIds || []).includes(currentUser.uid);
             const canManage = canManageTasksForProject(userProfile?.rol, isLeaderForProject);
-            setHasProjectTaskAccess(canManage);
 
             if (!canManage) {
               toast({ title: 'Sin permisos para este proyecto', variant: 'destructive' });
               router.push('/unauthorized?page=panel-proyectos');
               return;
             }
+
+            if (sourceTaskId) {
+              const sourceDoc = await getDoc(doc(db, 'tasks', sourceTaskId));
+              if (cancelled) return;
+              const source = sourceDoc.data() as FirestoreTask | undefined;
+              if (!source || source.parentId !== projectId) {
+                toast({ title: 'Tarea no encontrada en este proyecto', variant: 'destructive' });
+                router.replace('/profesor/panel-proyectos');
+                return;
+              }
+
+              const endDate = source.endDate?.toDate
+                ? source.endDate.toDate()
+                : new Date(String(source.endDate ?? ''));
+
+              reset({
+                name: source.name,
+                description: source.description,
+                endDate: Number.isNaN(endDate.getTime()) ? '' : endDate.toISOString().slice(0, 10),
+                hours: source.hours,
+                maxSlots: source.maxSlots,
+                status: source.status,
+              }, { keepDefaultValues: true });
+            } else {
+              reset();
+            }
+
+            setHasProjectTaskAccess(true);
           } else {
             toast({ title: 'Proyecto no encontrado', variant: 'destructive' });
             router.push('/profesor/panel-proyectos');
           }
         } catch (error) {
-          console.error('Error fetching project:', error);
+          if (cancelled) return;
+          console.error('Error loading task creation form:', error);
+          toast({
+            title: sourceTaskId ? 'No se pudo cargar la tarea para duplicarla' : 'No se pudo cargar el proyecto',
+            variant: 'destructive',
+          });
+          router.replace('/profesor/panel-proyectos');
         } finally {
-          setLoadingProject(false);
+          if (!cancelled) setLoadingProject(false);
         }
       };
       fetchProject();
     }
-  }, [projectId, currentUser, userProfile, toast, router]);
+    return () => { cancelled = true; };
+  }, [projectId, sourceTaskId, currentUser, userProfile, reset, toast, router]);
 
   const onSubmit: SubmitHandler<TaskFormValues> = async (data) => {
-    if (!currentUser) return;
+    if (!currentUser || !hasProjectTaskAccess || submissionInProgress.current) return;
+    submissionInProgress.current = true;
     setIsSubmitting(true);
 
     try {
@@ -124,7 +168,7 @@ export default function CrearTareaPage() {
       await addDoc(collection(db, 'tasks'), taskData);
 
       toast({
-        title: 'Tarea Creada',
+        title: sourceTaskId ? 'Copia creada' : 'Tarea Creada',
         description: 'La nueva tarea ha sido guardada exitosamente.',
       });
       router.push('/profesor/panel-proyectos');
@@ -135,7 +179,7 @@ export default function CrearTareaPage() {
         description: error instanceof Error ? error.message : 'Ocurrió un error desconocido.',
         variant: 'destructive',
       });
-    } finally {
+      submissionInProgress.current = false;
       setIsSubmitting(false);
     }
   };
@@ -167,7 +211,7 @@ export default function CrearTareaPage() {
           <CardHeader className="text-center">
             <ClipboardList className="mx-auto h-12 w-12 text-primary mb-3" />
             <CardTitle className="font-headline text-3xl md:text-4xl">
-              Crear Nueva Tarea
+              {sourceTaskId ? 'Duplicar tarea' : 'Crear Nueva Tarea'}
             </CardTitle>
             <CardDescription className="text-lg text-foreground/70">
               Creando tarea para: <span className="font-semibold text-primary">{projectName}</span>
@@ -210,7 +254,7 @@ export default function CrearTareaPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Estado</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona un estado" />
@@ -274,9 +318,9 @@ export default function CrearTareaPage() {
               </div>
             </Form>
 
-            <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting} onClick={form.handleSubmit(onSubmit)}>
+            <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-              {isSubmitting ? 'Guardando...' : 'Crear Tarea'}
+              {isSubmitting ? 'Guardando...' : sourceTaskId ? 'Crear copia' : 'Crear Tarea'}
             </Button>
           </CardContent>
         </Card>
