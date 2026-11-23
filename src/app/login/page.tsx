@@ -18,8 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { LogIn, Mail, KeyRound, AlertTriangle } from 'lucide-react';
 
 const loginSchema = z.object({
-  email: z.string().email({ message: 'Por favor ingresa un correo válido.' }),
-  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
+  email: z.string().trim().email({ message: 'Por favor ingresa un correo válido.' }),
+  password: z.string().min(1, { message: 'Ingresa tu contraseña.' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -100,7 +100,7 @@ export default function LoginPage() {
       case 'auth/invalid-email':
         return 'El formato del correo electrónico no es válido.';
       case 'auth/user-disabled':
-        return 'Esta cuenta de usuario ha sido deshabilitada.';
+      case 'auth/invalid-credential':
       case 'auth/user-not-found':
       case 'auth/wrong-password':
         return 'Correo electrónico o contraseña incorrectos.';
@@ -124,7 +124,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {authError && (
-            <div className="bg-destructive/10 p-3 rounded-md flex items-center text-destructive text-sm">
+            <div role="alert" className="bg-destructive/10 p-3 rounded-md flex items-center text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 mr-2" />
               {authError}
             </div>
@@ -138,7 +138,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="tu@correo.com" {...field} disabled={isLoading} />
+                      <Input type="email" autoComplete="email" autoCapitalize="none" placeholder="tu@correo.com" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -151,12 +151,17 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" /> Contraseña</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input type="password" autoComplete="current-password" placeholder="••••••••" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              <div className="text-right">
+                <Button variant="link" asChild className="h-auto p-0">
+                  <Link href="/recuperar-contrasena">¿Olvidaste tu contraseña?</Link>
+                </Button>
+              </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Ingresando...' : 'Ingresar'}
               </Button>
