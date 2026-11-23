@@ -51,6 +51,8 @@ const useEmulators =
 if (useEmulators) {
   try {
     if (auth && !auth.emulatorConfig) {
+      // The Auth emulator prints password-reset links for local testing.
+      // https://firebase.google.com/docs/emulator-suite/connect_auth#emulated_email_email_link_and_anonymous_authentication
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     }
     if (db) {

@@ -7,22 +7,26 @@ import Link from 'next/link';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, validatePassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import type { UserProfile } from '@/types/user';
 import { UserPlus, Mail, KeyRound, UserCircle, AlertTriangle } from 'lucide-react';
 
 const signupSchema = z.object({
   displayName: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
-  email: z.string().email({ message: 'Por favor ingresa un correo válido.' }),
-  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
+  email: z.string().trim().email({ message: 'Por favor ingresa un correo válido.' }),
+  password: z.string().min(12, { message: 'Usa al menos 12 caracteres.' }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Las contraseñas no coinciden.',
+  path: ['confirmPassword'],
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -39,6 +43,7 @@ export default function SignupPage() {
       displayName: '',
       email: '',
       password: '',
+      confirmPassword: '',
     },
   });
 
@@ -51,6 +56,21 @@ export default function SignupPage() {
       return;
     }
     try {
+      // https://firebase.google.com/docs/auth/web/password-auth
+      if (!auth.emulatorConfig) {
+        const passwordStatus = await validatePassword(auth, data.password);
+        if (!passwordStatus.isValid) {
+          const requirements: string[] = [];
+          if (passwordStatus.containsLowercaseLetter === false) requirements.push('una letra minúscula');
+          if (passwordStatus.containsUppercaseLetter === false) requirements.push('una letra mayúscula');
+          if (passwordStatus.containsNumericCharacter === false) requirements.push('un número');
+          if (passwordStatus.containsNonAlphanumericCharacter === false) requirements.push('un símbolo');
+          if (passwordStatus.meetsMinPasswordLength === false) requirements.push(`al menos ${passwordStatus.passwordPolicy.customStrengthOptions.minPasswordLength} caracteres`);
+          if (passwordStatus.meetsMaxPasswordLength === false) requirements.push(`como máximo ${passwordStatus.passwordPolicy.customStrengthOptions.maxPasswordLength} caracteres`);
+          form.setError('password', { message: `La contraseña debe incluir ${requirements.join(', ')}.` });
+          return;
+        }
+      }
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const firebaseUser = userCredential.user;
 
@@ -127,11 +147,19 @@ export default function SignupPage() {
   const getFirebaseAuthErrorMessage = (errorCode: string): string => {
     switch (errorCode) {
       case 'auth/email-already-in-use':
-        return 'Este correo electrónico ya está registrado.';
+        return 'No se pudo crear la cuenta. Intenta iniciar sesión o recuperar tu contraseña.';
       case 'auth/invalid-email':
         return 'El formato del correo electrónico no es válido.';
+      case 'auth/network-request-failed':
+        return 'No se pudo conectar con el servicio de autenticación. Revisa tu conexión y, en desarrollo, que el emulador esté iniciado.';
+      case 'auth/invalid-api-key':
+      case 'auth/app-not-authorized':
+        return 'La configuración de autenticación no es válida. Contacta al equipo del TCU.';
       case 'auth/operation-not-allowed':
         return 'El registro por correo y contraseña no está habilitado.';
+      case 'auth/too-many-requests':
+        return 'Demasiados intentos. Intenta de nuevo más tarde.';
+      case 'auth/password-does-not-meet-requirements':
       case 'auth/weak-password':
         return 'La contraseña es demasiado débil.';
       case 'auth/popup-closed-by-user':
@@ -151,7 +179,7 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {authError && (
-            <div className="bg-destructive/10 p-3 rounded-md flex items-center text-destructive text-sm">
+            <div role="alert" className="bg-destructive/10 p-3 rounded-md flex items-center text-destructive text-sm">
               <AlertTriangle className="h-4 w-4 mr-2" />
               {authError}
             </div>
@@ -165,7 +193,7 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><UserCircle className="mr-2 h-4 w-4 text-muted-foreground" /> Nombre Completo</FormLabel>
                     <FormControl>
-                      <Input placeholder="Tu nombre" {...field} disabled={isLoading} />
+                      <Input autoComplete="name" placeholder="Tu nombre" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -178,7 +206,7 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" /> Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="tu@correo.com" {...field} disabled={isLoading} />
+                      <Input type="email" autoComplete="email" autoCapitalize="none" placeholder="tu@correo.com" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,7 +219,21 @@ export default function SignupPage() {
                   <FormItem>
                     <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" /> Contraseña</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input type="password" autoComplete="new-password" placeholder="••••••••" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormDescription>Usa al menos 12 caracteres. Puedes usar una frase larga y única.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar contraseña</FormLabel>
+                    <FormControl>
+                      <Input type="password" autoComplete="new-password" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
