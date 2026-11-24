@@ -14,6 +14,7 @@ import type { UserProfile } from '@/types/user';
 import { normalizeRole, canAccessUserPanel, canChangeUserRole, ASSISTANT_ASSIGNABLE_ROLES, PROFESSOR_ASSIGNABLE_ROLES } from '@/lib/roles';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { TeacherRequestsPanel } from '@/components/teacher-requests-panel';
 import { UserTasksDialog } from '@/components/user-tasks-dialog';
 import {
   Select,
@@ -170,6 +171,11 @@ export default function PanelUsuariosPage() {
 
   return (
     <div className="container mx-auto py-8 space-y-8">
+      {normalizeRole(userProfile.rol) === 'profesor' && (
+        <>
+          <TeacherRequestsPanel actorUid={currentUser.uid} users={users} />
+        </>
+      )}
       <Card className="shadow-lg">
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-6">
           <div className="mb-4 md:mb-0">

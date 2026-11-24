@@ -1,0 +1,100 @@
+// Replace the previous teacher-request fragment inside match /databases/{database}/documents.
+// Firestore allow rules are additive. Check existing user and wildcard permissions.
+function teacherRequestReviewer() {
+  return request.auth != null &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+}
+
+function teacherRequestPath(requestId) {
+  return /databases/$(database)/documents/teacherRequests/$(requestId);
+}
+
+function teacherRequestLockPath(uid) {
+  return /databases/$(database)/documents/teacherRequestLocks/$(uid);
+}
+
+function hasOpenTeacherRequest(requestId) {
+  return exists(teacherRequestPath(requestId)) &&
+    get(teacherRequestPath(requestId)).data.status == 'pending';
+}
+
+function validTeacherRequestDetails(uid, data) {
+  let role = get(/databases/$(database)/documents/users/$(uid)).data.rol;
+  return role in ['invitado', 'alumno', 'lider', 'asistente', 'profesor', 'admin'] &&
+    data.requestedRole in ['invitado', 'alumno', 'lider', 'asistente', 'profesor'] &&
+    data.requestedRole != (role == 'admin' ? 'profesor' : role) &&
+    data.reason is string && data.reason.size() >= 10 && data.reason.size() <= 1000;
+}
+
+function createsOpenTeacherRequest(uid, requestId) {
+  let path = teacherRequestPath(requestId);
+  return requestId is string && requestId != uid && !exists(path) &&
+    getAfter(path).data.uid == uid && getAfter(path).data.status == 'pending' &&
+    getAfter(path).data.createdAt == request.time;
+}
+
+match /teacherRequestLocks/{uid} {
+  allow get: if request.auth != null && request.auth.uid == uid;
+  allow create, update: if request.auth != null && request.auth.uid == uid &&
+    request.resource.data.keys().hasOnly(['requestId']) &&
+    !hasOpenTeacherRequest(uid) &&
+    (!exists(teacherRequestLockPath(uid)) || !hasOpenTeacherRequest(resource.data.requestId)) &&
+    createsOpenTeacherRequest(uid, request.resource.data.requestId);
+}
+
+match /teacherRequests/{requestId} {
+  allow get: if request.auth != null &&
+    (teacherRequestReviewer() || request.auth.uid == requestId || resource.data.uid == request.auth.uid);
+  allow list: if request.auth != null &&
+    (teacherRequestReviewer() || resource.data.uid == request.auth.uid);
+  allow create: if request.auth != null && requestId != request.auth.uid &&
+    request.resource.data.keys().hasOnly(['uid', 'reason', 'requestedRole', 'status', 'createdAt']) &&
+    request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pending' &&
+    request.resource.data.createdAt == request.time &&
+    validTeacherRequestDetails(request.auth.uid, request.resource.data) &&
+    getAfter(teacherRequestLockPath(request.auth.uid)).data.requestId == requestId &&
+    (!exists(teacherRequestLockPath(request.auth.uid)) ||
+      get(teacherRequestLockPath(request.auth.uid)).data.requestId != requestId);
+  allow update: if request.auth != null && resource.data.status == 'pending' &&
+    (teacherRequestOwnerUpdate() || teacherRequestReview());
+  allow delete: if false;
+
+  function teacherRequestOwnerUpdate() {
+    let data = request.resource.data;
+    let fields = data.diff(resource.data).affectedKeys();
+    return resource.data.uid == request.auth.uid &&
+      ((fields.hasOnly(['reason', 'requestedRole', 'updatedAt']) &&
+        data.updatedAt == request.time && validTeacherRequestDetails(request.auth.uid, data)) ||
+       (fields.hasOnly(['status', 'withdrawnAt']) &&
+        data.status == 'withdrawn' && data.withdrawnAt == request.time));
+  }
+
+  function teacherRequestReview() {
+    let data = request.resource.data;
+    return teacherRequestReviewer() && request.auth.uid != resource.data.uid &&
+      data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt']) &&
+      data.status in ['approved', 'rejected'] &&
+      data.reviewedBy == request.auth.uid && data.reviewedAt == request.time &&
+      (data.status == 'rejected' ||
+        getAfter(/databases/$(database)/documents/users/$(resource.data.uid)).data.rol ==
+          resource.data.get('requestedRole', 'profesor'));
+  }
+}
+
+function approvesTeacherRequest(uid, requestId, role) {
+  let path = teacherRequestPath(requestId);
+  let before = get(path).data;
+  let after = getAfter(path).data;
+  return before.uid == uid && before.status == 'pending' && before.get('requestedRole', 'profesor') == role &&
+    after.status == 'approved' && after.reviewedBy == request.auth.uid && after.reviewedAt == request.time;
+}
+
+// Permit the role change in the same atomic operation as the approval.
+match /users/{uid} {
+  allow update: if teacherRequestReviewer() && request.auth.uid != uid &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rol']) &&
+    request.resource.data.rol in ['invitado', 'alumno', 'lider', 'asistente', 'profesor'] &&
+    approvesTeacherRequest(uid,
+      hasOpenTeacherRequest(uid) ? uid : get(teacherRequestLockPath(uid)).data.requestId,
+      request.resource.data.rol);
+}

@@ -68,6 +68,10 @@ export function Navbar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Mi Cuenta ({userProfile.rol})</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href="/solicitudes">Sugerencias y errores</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/solicitar-profesor">Solicitar cambio de rol</Link></DropdownMenuItem>
             {!isAlumno && <DropdownMenuSeparator />}
              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
@@ -131,6 +135,14 @@ export function Navbar() {
                         Panel de Usuarios
                       </Link>
                     </DropdownMenuItem>
+                    {canAccessProfessorPanels && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/profesor/panel-sugerencias" className="flex items-center">
+                          <ClipboardList className="mr-2 h-4 w-4" />
+                          Revisar sugerencias y errores
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                 </DropdownMenuGroup>
               </>
             )}
@@ -167,6 +179,16 @@ export function Navbar() {
             <p className="px-4 text-sm font-medium text-muted-foreground mb-2">
               {userProfile.displayName || userProfile.email} ({userProfile.rol})
             </p>
+            <SheetClose asChild>
+              <Link href="/solicitudes" className="block py-2 px-4 text-muted-foreground hover:text-foreground">
+                Sugerencias y errores
+              </Link>
+            </SheetClose>
+            <SheetClose asChild>
+              <Link href="/solicitar-profesor" className="block py-2 px-4 text-muted-foreground hover:text-foreground">
+                Solicitar cambio de rol
+              </Link>
+            </SheetClose>
             <SheetClose asChild>
               <Link href="/mis-tareas" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                 <ClipboardList className="mr-2 h-5 w-5" /> Mis Tareas
@@ -214,12 +236,19 @@ export function Navbar() {
 
             {!isAlumno && canAccessUserPanelSection && (
               <>
-                {!canAccessProfessorPanels && <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>}
+                <p className="px-4 text-xs font-semibold text-muted-foreground mt-4 mb-2 uppercase">Administración</p>
                 <SheetClose asChild>
                   <Link href="/profesor/panel-usuarios" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
                     <UsersRound className="mr-2 h-5 w-5" /> Panel de Usuarios
                   </Link>
                 </SheetClose>
+                {canAccessProfessorPanels && (
+                  <SheetClose asChild>
+                    <Link href="/profesor/panel-sugerencias" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
+                      <ClipboardList className="mr-2 h-5 w-5" /> Revisar sugerencias y errores
+                    </Link>
+                  </SheetClose>
+                )}
               </>
             )}
           </div>

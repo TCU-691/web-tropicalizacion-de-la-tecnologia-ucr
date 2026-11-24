@@ -1,0 +1,28 @@
+// Merge inside match /databases/{database}/documents.
+// Requires teacherRequestReviewer() from teacher-requests.rules.
+function canReadRequestComments(requestCollection, requestId) {
+  return request.auth != null &&
+    (requestCollection in ['teacherRequests', 'applicationRequests']) &&
+    exists(/databases/$(database)/documents/$(requestCollection)/$(requestId)) &&
+    (get(/databases/$(database)/documents/$(requestCollection)/$(requestId)).data.uid == request.auth.uid ||
+      teacherRequestReviewer());
+}
+
+function requestCommentAuthorName() {
+  let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+  return profile.get('displayName', '') != '' ? profile.displayName :
+    (profile.get('email', '') != '' ? profile.email : request.auth.uid);
+}
+
+match /{requestCollection}/{requestId}/comments/{commentId} {
+  allow read: if canReadRequestComments(requestCollection, requestId);
+  allow create: if canReadRequestComments(requestCollection, requestId) &&
+    request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'text', 'createdAt']) &&
+    request.resource.data.authorUid == request.auth.uid &&
+    request.resource.data.authorName == requestCommentAuthorName() &&
+    request.resource.data.authorName is string &&
+    request.resource.data.text is string &&
+    request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000 &&
+    request.resource.data.createdAt == request.time;
+  allow update, delete: if false;
+}
