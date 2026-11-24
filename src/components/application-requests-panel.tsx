@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { UserProfile } from '@/types/user';
 import { RequestComments } from '@/components/request-comments';
+import { RequestHelp } from '@/components/request-help';
 
 const GROUP_STATUSES = {
   open: ['pending', 'in_progress'],
@@ -97,7 +98,18 @@ export function ApplicationRequestsPanel({ uid, review = false, users = [] }: { 
 
   return (
     <Card>
-      <CardHeader><CardTitle>{review ? 'Solicitudes de la aplicación' : 'Mis solicitudes'}</CardTitle></CardHeader>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <CardTitle>{review ? 'Solicitudes de la aplicación' : 'Mis solicitudes'}</CardTitle>
+          <RequestHelp label={review ? 'Ayuda sobre sugerencias y reportes de errores' : 'Ayuda sobre el seguimiento de mis solicitudes'}>
+            {review ? (
+              <p>Esta bandeja reúne las mejoras que proponen los usuarios y los errores que encuentran en la plataforma. Abre una solicitud para leerla, responder con un comentario o actualizar su estado. Las resueltas y descartadas pasan a Cerradas.</p>
+            ) : (
+              <p>Esta tabla muestra las sugerencias y los reportes que has enviado. Busca o filtra las solicitudes y pulsa un título para ver el detalle o comentar. En Cerradas puedes consultar las resueltas y descartadas.</p>
+            )}
+          </RequestHelp>
+        </div>
+      </CardHeader>
       <CardContent className="space-y-4">
         <Tabs value={group} onValueChange={value => {
           setGroup(value as keyof typeof GROUP_STATUSES);

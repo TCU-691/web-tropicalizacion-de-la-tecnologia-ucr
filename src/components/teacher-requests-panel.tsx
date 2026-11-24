@@ -7,6 +7,7 @@ import { PROFESSOR_ASSIGNABLE_ROLES, type AppRole } from '@/lib/roles';
 import { ROLE_LABELS, ROLE_REQUEST_STATUSES, reviewTeacherRequest, saveTeacherRequest, withdrawTeacherRequest, type TeacherRequest } from '@/lib/teacher-requests';
 import type { UserProfile } from '@/types/user';
 import { RequestComments } from '@/components/request-comments';
+import { RequestHelp } from '@/components/request-help';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -127,7 +128,16 @@ export function TeacherRequestsPanel({ actorUid, review = true, users = [], curr
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <CardTitle>{review ? 'Solicitudes de roles' : 'Mis solicitudes de cambio de rol'}</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>{review ? 'Solicitudes de roles' : 'Mis solicitudes de cambio de rol'}</CardTitle>
+          <RequestHelp label="Ayuda sobre solicitudes de cambio de rol">
+            {review ? (
+              <p>Una solicitud de cambio de rol es una petición para cambiar los permisos de una cuenta en la plataforma. Abre la solicitud para ver qué rol pide la persona y por qué. Puedes comentar, aprobar o denegar la petición. Si la apruebas, se asigna el rol solicitado.</p>
+            ) : (
+              <p>Una solicitud de cambio de rol te permite pedirle a un profesor que cambie los permisos de tu cuenta. Por ejemplo, puedes pedir el rol de Alumno para participar en tareas del TCU. Elige el rol y explica por qué lo necesitas. Puedes editar o retirar tu solicitud mientras siga abierta y consultar la decisión en Cerradas.</p>
+            )}
+          </RequestHelp>
+        </div>
         {!review && (
           <Button disabled={loading || !!loadError || !currentRole} onClick={event => {
             openButton.current = event.currentTarget;

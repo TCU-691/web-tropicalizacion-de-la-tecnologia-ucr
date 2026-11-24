@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { db } from '@/lib/firebase';
 import { applicationRequestSchema, newApplicationRequestId, submitApplicationRequest } from '@/lib/application-requests';
 import { ApplicationRequestsPanel } from '@/components/application-requests-panel';
+import { RequestHelp } from '@/components/request-help';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,9 +49,16 @@ export default function ApplicationRequestsPage() {
   return (
     <div className="container max-w-2xl py-8 space-y-6">
       <Card>
-        <CardHeader><CardTitle>Sugerir una mejora o reportar un error</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CardTitle>Sugerir una mejora o reportar un error</CardTitle>
+            <RequestHelp label="Ayuda para enviar una sugerencia o reportar un error">
+              <p>Este formulario le permite al equipo del TCU conocer tus ideas para mejorar la plataforma y los problemas que encuentras al usarla. Elige el tipo de solicitud y describe tu idea o lo que ocurrió para que un profesor pueda revisarlo.</p>
+            </RequestHelp>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <p>Comparte una mejora o describe un error. Para los errores, incluye los pasos para reproducirlo y qué esperabas que ocurriera.</p>
+          <p>Si reportas un error, incluye qué hiciste, qué ocurrió y qué esperabas que pasara.</p>
           {error && <p role="alert" className="text-destructive">{error}</p>}
           {success && <p role="status">Tu solicitud fue enviada. Puedes seguir su estado abajo.</p>}
           {!db && <p role="alert">El servicio no está disponible. Intenta más tarde.</p>}
