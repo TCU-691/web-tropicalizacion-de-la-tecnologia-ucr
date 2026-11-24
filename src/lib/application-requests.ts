@@ -1,4 +1,4 @@
-import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, runTransaction, serverTimestamp, type Timestamp } from 'firebase/firestore';
 import { z } from 'zod';
 import { db } from '@/lib/firebase';
 import { normalizeRole } from '@/lib/roles';
@@ -19,6 +19,7 @@ export interface ApplicationRequest extends z.infer<typeof applicationRequestSch
   id: string;
   uid: string;
   status: RequestStatus;
+  createdAt?: Timestamp | null;
 }
 
 export function newApplicationRequestId() {
