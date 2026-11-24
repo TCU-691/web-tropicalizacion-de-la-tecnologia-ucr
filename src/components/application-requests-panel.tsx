@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { REQUEST_STATUSES, updateApplicationRequestStatus, type ApplicationRequest, type RequestStatus } from '@/lib/application-requests';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { UserProfile } from '@/types/user';
 import { RequestComments } from '@/components/request-comments';
 
 export function ApplicationRequestsPanel({ uid, review = false, users = [] }: { uid: string; review?: boolean; users?: UserProfile[] }) {
