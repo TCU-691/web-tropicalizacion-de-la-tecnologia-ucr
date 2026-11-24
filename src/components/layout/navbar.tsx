@@ -69,9 +69,9 @@ export function Navbar() {
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Mi Cuenta ({userProfile.rol})</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href="/solicitudes">Sugerencias y reportes</Link>
+              <Link href="/solicitudes">Sugerencias y errores</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href="/solicitar-profesor">Solicitar un rol</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/solicitar-profesor">Solicitar cambio de rol</Link></DropdownMenuItem>
             {!isAlumno && <DropdownMenuSeparator />}
              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
@@ -139,7 +139,7 @@ export function Navbar() {
                       <DropdownMenuItem asChild>
                         <Link href="/profesor/panel-sugerencias" className="flex items-center">
                           <ClipboardList className="mr-2 h-4 w-4" />
-                          Sugerencias y reportes
+                          Revisar sugerencias y errores
                         </Link>
                       </DropdownMenuItem>
                     )}
@@ -181,12 +181,12 @@ export function Navbar() {
             </p>
             <SheetClose asChild>
               <Link href="/solicitudes" className="block py-2 px-4 text-muted-foreground hover:text-foreground">
-                Sugerencias y reportes
+                Sugerencias y errores
               </Link>
             </SheetClose>
             <SheetClose asChild>
               <Link href="/solicitar-profesor" className="block py-2 px-4 text-muted-foreground hover:text-foreground">
-                Solicitar un rol
+                Solicitar cambio de rol
               </Link>
             </SheetClose>
             <SheetClose asChild>
@@ -245,7 +245,7 @@ export function Navbar() {
                 {canAccessProfessorPanels && (
                   <SheetClose asChild>
                     <Link href="/profesor/panel-sugerencias" className="flex items-center w-full py-2 px-4 text-muted-foreground transition-colors hover:text-foreground">
-                      <ClipboardList className="mr-2 h-5 w-5" /> Sugerencias y reportes
+                      <ClipboardList className="mr-2 h-5 w-5" /> Revisar sugerencias y errores
                     </Link>
                   </SheetClose>
                 )}

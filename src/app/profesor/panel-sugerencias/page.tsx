@@ -37,14 +37,14 @@ export default function PanelSugerenciasPage() {
   }, [currentUser, canReview]);
 
   if (loading || !currentUser || !userProfile) {
-    return <p role="status" className="container mx-auto py-8">Cargando sugerencias y reportes...</p>;
+    return <p role="status" className="container mx-auto py-8">Cargando solicitudes...</p>;
   }
 
   if (!canReview) return null;
 
   return (
     <div className="container mx-auto py-8 space-y-6">
-      <h1 className="font-headline text-3xl text-primary">Sugerencias y reportes</h1>
+      <h1 className="font-headline text-3xl text-primary">Revisar sugerencias y errores</h1>
       {usersError && <p role="alert" className="text-destructive">{usersError}</p>}
       <ApplicationRequestsPanel uid={currentUser.uid} review users={users} />
     </div>

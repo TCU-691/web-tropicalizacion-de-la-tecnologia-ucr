@@ -48,7 +48,7 @@ export default function ApplicationRequestsPage() {
   return (
     <div className="container max-w-2xl py-8 space-y-6">
       <Card>
-        <CardHeader><CardTitle>Sugerencias y reportes de la aplicación</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Sugerir una mejora o reportar un error</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <p>Comparte una mejora o describe un error. Para los errores, incluye los pasos para reproducirlo y qué esperabas que ocurriera.</p>
           {error && <p role="alert" className="text-destructive">{error}</p>}
