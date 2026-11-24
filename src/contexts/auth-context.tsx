@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { type User as FirebaseAuthUser, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<FirebaseAuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,21 +96,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (auth) {
         await firebaseSignOut(auth);
       }
-      // setCurrentUser(null); // onAuthStateChanged se encargará de esto
-      // setUserProfile(null); // onAuthStateChanged se encargará de esto
       toast({
         title: "Sesión cerrada",
         description: "Has cerrado sesión exitosamente.",
       });
+      router.replace('/login');
     } catch (error) {
+      setLoading(false);
       console.error("Error signing out: ", error);
       toast({
         title: "Error",
         description: "No se pudo cerrar la sesión.",
         variant: "destructive",
       });
-    } finally {
-      // setLoading(false); // onAuthStateChanged maneja el estado de carga final
     }
   };
 
