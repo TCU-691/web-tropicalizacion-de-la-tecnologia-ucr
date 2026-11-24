@@ -1,0 +1,39 @@
+// Merge these blocks inside match /databases/{database}/documents.
+// Review every existing users rule before deployment. Firestore allow rules are additive.
+function teacherRequestReviewer() {
+  return request.auth != null &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['profesor', 'admin'];
+}
+
+match /teacherRequests/{uid} {
+  allow get: if request.auth != null && (request.auth.uid == uid || teacherRequestReviewer());
+  allow list: if teacherRequestReviewer();
+  allow create: if request.auth != null && request.auth.uid == uid &&
+    get(/databases/$(database)/documents/users/$(uid)).data.rol in ['invitado', 'alumno', 'lider', 'asistente', 'profesor', 'admin'] &&
+    request.resource.data.keys().hasOnly(['uid', 'reason', 'requestedRole', 'status', 'createdAt']) &&
+    request.resource.data.requestedRole in ['invitado', 'alumno', 'lider', 'asistente', 'profesor'] &&
+    request.resource.data.requestedRole != get(/databases/$(database)/documents/users/$(uid)).data.rol &&
+    request.resource.data.uid == uid && request.resource.data.status == 'pending' &&
+    request.resource.data.reason is string && request.resource.data.reason.size() >= 10 &&
+    request.resource.data.reason.size() <= 1000 && request.resource.data.createdAt == request.time;
+  allow update: if teacherRequestReviewer() && request.auth.uid != uid &&
+    resource.data.status == 'pending' &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt']) &&
+    request.resource.data.status in ['approved', 'rejected'] &&
+    request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time &&
+    (request.resource.data.status == 'rejected' ||
+      getAfter(/databases/$(database)/documents/users/$(uid)).data.rol == resource.data.get('requestedRole', 'profesor'));
+  allow delete: if false;
+}
+
+// This permits the role change in the same atomic operation as an approval.
+match /users/{uid} {
+  allow update: if teacherRequestReviewer() && request.auth.uid != uid &&
+    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rol']) &&
+    request.resource.data.rol in ['invitado', 'alumno', 'lider', 'asistente', 'profesor'] &&
+    request.resource.data.rol == get(/databases/$(database)/documents/teacherRequests/$(uid)).data.get('requestedRole', 'profesor') &&
+    get(/databases/$(database)/documents/teacherRequests/$(uid)).data.status == 'pending' &&
+    getAfter(/databases/$(database)/documents/teacherRequests/$(uid)).data.status == 'approved' &&
+    getAfter(/databases/$(database)/documents/teacherRequests/$(uid)).data.reviewedBy == request.auth.uid &&
+    getAfter(/databases/$(database)/documents/teacherRequests/$(uid)).data.reviewedAt == request.time;
+}
